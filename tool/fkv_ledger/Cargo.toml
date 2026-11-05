@@ -1,0 +1,25 @@
+[package]
+name = "fkv_ledger"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "迁移账本：tree-sitter 扫描 eloqstore，motedb 存储，clap_args 认领"
+
+[dependencies]
+clap_args = { version = "0.1.9", features = ["macro"] }
+tree-sitter = "0.25"
+tree-sitter-cpp = "0.23"
+thiserror = "2"
+motedb = { version = "0.17.0", default-features = false }
+gxhash = "3.5.0"
+rusty_alloc_default = "0.1.4"
+serde_json = "1"
+fkv_page = { version = "0.1.0", path = "../../../fkv/crate/format/fkv_page" }
+fkv_manifest = { version = "0.1.0", path = "../../../fkv/crate/format/fkv_manifest" }
+fkv_compress = { version = "0.1.0", path = "../../../fkv/crate/format/fkv_compress" }
+fkv_codec = { version = "0.1.0", path = "../../../fkv/crate/foundation/fkv_codec" }
+fkv_types = { version = "0.1.0", path = "../../../fkv/crate/foundation/fkv_types" }
+fkv_error = { version = "0.1.0", path = "../../../fkv/crate/foundation/fkv_error" }
+

@@ -1,0 +1,16 @@
+[package]
+name = "fkv_compat"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "eloqstore C++ oracle 语料与 fkv Rust 实现的双向兼容验证"
+
+[dev-dependencies]
+fkv_page = { path = "../../../../fkv/crate/format/fkv_page" }
+fkv_compress = { path = "../../../../fkv/crate/format/fkv_compress" }
+fkv_manifest = { path = "../../../../fkv/crate/format/fkv_manifest" }
+fkv_mapping = { path = "../../../../fkv/crate/core/fkv_mapping" }
+fkv_codec = { path = "../../../../fkv/crate/foundation/fkv_codec" }
+fkv_types = { path = "../../../../fkv/crate/foundation/fkv_types" }

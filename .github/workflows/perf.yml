@@ -1,0 +1,189 @@
+name: perf
+
+# V6 性能门槛。默认在 4 KiB 页的 Linux runner 上跑 fkv_bench，与
+# `perf-baseline` release 里的同 runner Rust/C++ 基线比较。
+#
+# - 缺 `perf-baseline` 资产：脚本 exit 78（skipped-with-error），作业变红；
+#   只有显式 PERF_GATE_REQUIRE_BASELINE=0 才允许降级（本 workflow 固定为 1）。
+# - 非 4 KiB 页 / 非 NVMe / 非 Linux：同样 exit 78，不产生绿色结论。
+# - `publish_baseline=true` 的手动运行会跑 C++ simple_bench + Rust fkv_bench，
+#   产出 `perf-baseline.json` 并覆盖上传到 fkv 仓的 `perf-baseline` release。
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner_label:
+        description: "runner 标签（必须与 perf-baseline 产出时相同）"
+        required: false
+        default: "ubuntu-26.04"
+      publish_baseline:
+        description: "跑 C++/Rust 并发布 perf-baseline 资产"
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 4 * * 1"
+  pull_request:
+    paths:
+      - "crate/**"
+      - "tool/fkv_ledger/**"
+      - "scripts/perf_gate.sh"
+      - ".github/workflows/perf.yml"
+      - "COMPAT_BASELINE"
+
+permissions:
+  contents: read
+
+env:
+  FKV_REPO: webc-site/fkv
+  # 与 perf-baseline 产出时一致；自定义 runner 用仓库变量覆盖。
+  PERF_RUNNER_ID: ${{ vars.PERF_RUNNER_ID || 'github-ubuntu-26.04-x86_64' }}
+
+jobs:
+  perf-gate:
+    name: perf-gate (same-runner V6)
+    runs-on: ${{ github.event.inputs.runner_label || 'ubuntu-26.04' }}
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+      PERF_NVME_ROOT: ${{ vars.PERF_NVME_ROOT || '/tmp/fkv-perf-data' }}
+      PERF_GATE_REQUIRE_BASELINE: "1"
+      PERF_GATE_OUTPUT_DIR: ${{ vars.PERF_OUTPUT_DIR || '/tmp/fkv-perf-out' }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: prepare NVMe data dir
+        run: mkdir -p "$PERF_NVME_ROOT" "$PERF_GATE_OUTPUT_DIR"
+      - name: run perf gate
+        run: bash scripts/perf_gate.sh gate
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-gate-${{ github.run_id }}
+          path: ${{ env.PERF_GATE_OUTPUT_DIR }}/*.json
+          if-no-files-found: warn
+
+  perf-baseline:
+    name: perf-baseline publish
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_baseline == 'true'
+    runs-on: ${{ github.event.inputs.runner_label || 'ubuntu-26.04' }}
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+      PERF_NVME_ROOT: ${{ vars.PERF_NVME_ROOT || '/tmp/fkv-perf-data' }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: prepare NVMe data dir
+        run: mkdir -p "$PERF_NVME_ROOT"
+      - name: assert 4 KiB page size
+        run: |
+          page=$(getconf PAGESIZE)
+          if [ "$page" != "4096" ]; then
+            echo "::error title=perf-baseline:: runner PAGESIZE=$page，需要 4 KiB"
+            exit 78
+          fi
+      - name: install C++ build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build git curl ca-certificates pkg-config \
+            libboost-all-dev libjsoncpp-dev libzstd-dev libssl-dev libaio-dev \
+            liburing-dev libgoogle-glog-dev libgflags-dev libcurl4-openssl-dev \
+            libprotobuf-dev protobuf-compiler libleveldb-dev
+      - name: fetch pinned eloqstore
+        run: scripts/fetch_eloqstore.sh
+      - name: build simple_bench
+        run: |
+          cmake -B cpp/build -S cpp/eloqstore -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSKIP_CREATE_BUCKET=ON \
+            -DWITH_BENCHMARK=ON
+          cmake --build cpp/build --target simple_bench -j"$(nproc)"
+          find cpp/build -type f -name simple_bench -perm -u+x | head -n 1 > "$RUNNER_TEMP/simple_bench.path"
+          test -s "$RUNNER_TEMP/simple_bench.path"
+      - name: download fkv_bench (perf-latest)
+        run: |
+          mkdir -p "$RUNNER_TEMP/bench"
+          asset="fkv_bench-linux-$(uname -m)"
+          gh release download perf-latest -R "$FKV_REPO" -p "$asset" -D "$RUNNER_TEMP/bench" --clobber
+          chmod +x "$RUNNER_TEMP/bench/$asset"
+          echo "FKV_BENCH=$RUNNER_TEMP/bench/$asset" >> "$GITHUB_ENV"
+      - name: write append-mode ini
+        run: |
+          cat > "$RUNNER_TEMP/perf-append.ini" <<EOF
+          [run]
+          num_threads = 4
+          buffer_pool_size = 400MB
+          fd_limit = 5000
+          io_queue_size = 4096
+          skip_verify_checksum = true
+
+          [permanent]
+          store_path = ${PERF_NVME_ROOT}/cpp-store
+          data_page_size = 4KB
+          data_file_size = 1GB
+          data_append_mode = true
+          EOF
+      - name: run C++ simple_bench
+        run: |
+          SIMPLE_BENCH=$(cat "$RUNNER_TEMP/simple_bench.path")
+          rm -rf "$PERF_NVME_ROOT/cpp-store"
+          "$SIMPLE_BENCH" \
+            --kvoptions "$RUNNER_TEMP/perf-append.ini" \
+            --workload write-read \
+            --kv_size 128 \
+            --batch_size 100 \
+            --write_batchs 10000 \
+            --partitions 1 \
+            --max_key 1000000 \
+            --read_per_part 4 \
+            --read_thds 1 \
+            --test_secs 30 \
+            --scan_bytes 0 \
+            --show_write_perf=true > "$RUNNER_TEMP/cpp-bench.log" 2>&1 || {
+              tail -n 200 "$RUNNER_TEMP/cpp-bench.log"
+              exit 1
+            }
+      - name: run Rust fkv_bench
+        run: |
+          rm -rf "$PERF_NVME_ROOT/rust-store"
+          "$FKV_BENCH" \
+            --impl rust \
+            --root "$PERF_NVME_ROOT/rust-store" \
+            --workload write-read \
+            --rows 1000000 \
+            --max-key 1000000 \
+            --batch-size 100 \
+            --read-per-part 4 \
+            --partitions 1 \
+            --kv-size 128 \
+            --key-interval 4 \
+            --del-ratio 4 \
+            --write-batchs 10000 \
+            --scan-bytes 0 \
+            --test-secs 30 \
+            --history "$RUNNER_TEMP/rust-bench.json"
+      - name: produce perf-baseline.json
+        run: |
+          bash scripts/perf_gate.sh produce \
+            --cpp-log "$RUNNER_TEMP/cpp-bench.log" \
+            --rust-history "$RUNNER_TEMP/rust-bench.json" \
+            --out "$RUNNER_TEMP/perf-baseline.json"
+      - name: publish perf-baseline release asset
+        run: |
+          gh release view perf-baseline >/dev/null 2>&1 ||
+            gh release create perf-baseline \
+              --title "perf-baseline" \
+              --notes "Same-runner C++/Rust V6 baseline produced by .github/workflows/perf.yml" \
+              --latest=false
+          gh release upload perf-baseline "$RUNNER_TEMP/perf-baseline.json" --clobber
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-baseline-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/perf-baseline.json
+            ${{ runner.temp }}/cpp-bench.log
+            ${{ runner.temp }}/rust-bench.json
+          if-no-files-found: warn

@@ -1,0 +1,12 @@
+target/
+.data/
+data/
+*.db
+*.mote
+*.log
+.codegraph/
+node_modules/
+cpp/build/
+fixtures/generated/
+/fkv-oracle-*
+fkv/

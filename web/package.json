@@ -1,0 +1,18 @@
+{
+  "name": "eloqstore2fkv-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/my-god-war/eloqstore2fkv.git"
+  },
+  "scripts": {
+    "dev": "bun sh/siteSrv.js",
+    "build": "bun sh/dist.js",
+    "tran": "bun sh/tran.js"
+  },
+  "devDependencies": {
+    "@webc.site/cli": "^0.1.9"
+  }
+}

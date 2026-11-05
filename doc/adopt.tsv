@@ -1,0 +1,44 @@
+# fkv 迁移进度声明（账本批量对齐的事实源）
+#
+# 格式：crate <TAB或空格> status <TAB或空格> evidence路径
+#   - status 缺省 done；含义：该 crate 对应的 C++ unit 已有 Rust 实现与通过的测试。
+#     done ≠ verified：verified 需要 C++ oracle 差分证据，仍走逐 unit 的
+#     `evidence add` + `status verified`。
+#   - evidence路径：该 crate 的测试目录；adopt 会为每个推进的 unit 补一条
+#     kind=test result=pass 的证据（同路径去重）。
+#   - 只推进 todo/claimed/in_progress/review/blocked；done/verified/ignored 不动。
+#
+# 同步流程（DB 不入 git，重建后可重放）：
+#   cargo run -p fkv_ledger -- sync && cargo run -p fkv_ledger -- adopt \
+#     && cargo run -p fkv_ledger -- report --out doc/progress.md
+#
+# 未列出的 crate（如 fkv_io 只有 trait、由 fkv_io_compio/fkv_io_mem 测试覆盖；
+# 39 个 *_cpp 对照 crate 由 issue/reject/fmt-16 跟踪）保持 todo。
+fkv_types	done	crate/foundation/fkv_types/tests
+fkv_error	done	crate/foundation/fkv_error/tests
+fkv_codec	done	crate/foundation/fkv_codec/tests
+fkv_config	done	crate/foundation/fkv_config/tests
+fkv_manifest	done	crate/format/fkv_manifest/tests
+fkv_compress	done	crate/format/fkv_compress/tests
+fkv_page	done	crate/format/fkv_page/tests
+fkv_mapping	done	crate/core/fkv_mapping/tests
+fkv_buf	done	crate/core/fkv_buf/tests
+fkv_btree	done	crate/core/fkv_btree/tests
+fkv_large	done	crate/core/fkv_large/tests
+fkv_io_compio	done	crate/io/fkv_io_compio/tests
+fkv_object	done	crate/io/fkv_object/tests
+fkv_object_s3	done	crate/io/fkv_object_s3/tests
+fkv_standby	done	crate/io/fkv_standby/tests
+fkv_cloud	done	crate/engine/fkv_cloud/tests
+fkv_recovery	done	crate/engine/fkv_recovery/tests
+fkv_gc	done	crate/engine/fkv_gc/tests
+fkv_shard	done	crate/engine/fkv_shard/tests
+fkv_task_read	done	crate/engine/fkv_task_read/tests
+fkv_task_scan	done	crate/engine/fkv_task_scan/tests
+fkv_task_write	done	crate/engine/fkv_task_write/tests
+fkv_task_reopen	done	crate/engine/fkv_task_reopen/tests
+fkv_task_compact	done	crate/engine/fkv_task_compact/tests
+fkv_task_prewarm	done	crate/engine/fkv_task_prewarm/tests
+# fkv_runtime 的 C++ unit（archive_crond.cpp/.h）尚未被 scan 映射到该 crate，
+# 映射补上后取消注释：fkv_runtime done crate/engine/fkv_runtime/tests
+fkv_store	done	crate/engine/fkv_store/tests
