@@ -38,6 +38,12 @@
 > `mapping` / `store` 是 **fkv 自定义 format-envelope**，不是 eloqstore 的完整
 > 盘面格式，也不能作为「引擎级 store 目录互读」证据。引擎级 V2/V4 仍挂在
 > `issue/new/gap-02-engine-level-v2-v4-cross-read.md`。
+>
+> 统计口径（gap-09）：级别不是独立字段，而是 `kind` 的纯函数 ——
+> `kind ∈ {mapping, store}` 记 **format-envelope**；其余 5 类（`page` / `index` /
+> `overflow` / `manifest` / `compress`）是**真实 C++ builder 字节**，记
+> **format-bytes**。**`level=engine` 当前为 0 条**，所以任何「引擎级覆盖」统计
+> 都不得把前两类计入。
 
 `mapping`（`MappingSnapshot` 表序列化 + count 信封）：
 

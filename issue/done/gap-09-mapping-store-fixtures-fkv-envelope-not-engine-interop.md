@@ -59,3 +59,23 @@ store    single   status=pass   payload=4112
 - 存在可机械区分的级别标记，统计口径不再把信封用例计入引擎级覆盖；
 - `COMPAT_BASELINE` 与 `fixtures/README.md` 关于「非引擎级」的表述互相可检索到；
 - gap-02 保持开启（引擎级 V2/V4 未执行）。
+
+## 处置（2026-11-05）—— 按「派生」结项，不新增冗余字段
+
+原建议 1 要在 `meta.txt` 增加 `level=` 行。落地前复核后判定**冗余**：
+`kind` 已是 7 值枚举，而级别（format-envelope / format-bytes / engine）是 `kind` 的
+**纯函数**（实测 `kind` 分布：`compress 2 / index 2 / manifest 4 / mapping 3 /
+overflow 1 / page 7 / store 3`），同一个判断存两处只会带来漂移面（一旦 `kind` 与
+`level` 不一致，谁是权威？）。按 `rust_review` 的「避免过度设计」改为**派生 + 显式口径**。
+
+已落地：
+
+- `fixtures/README.md`「`mapping` / `store` payload 格式」一节新增统计口径：级别是
+  `kind` 的纯函数，`{mapping, store}` = format-envelope，其余 5 类 = format-bytes，
+  并明确「`level=engine` 当前为 0 条，引擎级统计不得计入前两类」。
+- 文档面更早已由 `7c2f018` 补齐：`COMPAT_BASELINE:99` 写明「不是引擎级 store 目录互读」，
+  `fixtures/README.md` 列出两种信封布局（count 前缀 / `FST1`）。
+
+仍成立且**不由本项关闭**：引擎级目标（Rust `open` C++ 产出的 store 目录）仍为 0，
+`L1` 升级前置不变 —— 挂在 gap-02。脚本侧若将来要机械统计，用 `kind` 派生即可，
+无需读 `meta.txt` 新字段。
