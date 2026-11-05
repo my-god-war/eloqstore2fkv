@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`ಪರಿಶೀಲನೆ ಪ್ರಕ್ರಿಯೆ`,oracle:`C++ oracle`,ledger:`ಲೆಡ್ಜರ್ ಅನ್ನು ಸ್ಥಳಾಂತರಿಸಿ`,performance:`ಕಾರ್ಯಕ್ಷಮತೆ`,issues:`ದಾಖಲೆಗಳನ್ನು ಪರಿಶೀಲಿಸಿ`};export{e as default};

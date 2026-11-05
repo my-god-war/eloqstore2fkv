@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`Ստուգման գործընթաց`,oracle:`C++ oracle`,ledger:`Տեղափոխել մատյան`,performance:`Արտադրողականություն`,issues:`Վերանայեք գրառումները`};export{e as default};

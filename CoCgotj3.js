@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`Ellenőrzési folyamat`,oracle:`C++ oracle`,ledger:`Főkönyv migrálása`,performance:`Teljesítmény`,issues:`Feljegyzések áttekintése`};export{e as default};

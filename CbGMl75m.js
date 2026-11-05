@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`পৰীক্ষণ প্ৰক্ৰিয়া`,oracle:`C++ oracle`,ledger:`লেজাৰ প্ৰব্ৰজন কৰক`,performance:`কাৰ্যক্ষমতা`,issues:`ৰেকৰ্ডসমূহ পৰ্যালোচনা কৰক`};export{e as default};

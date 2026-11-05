@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`תהליך אימות`,oracle:`C++ oracle`,ledger:`העבר ספר חשבונות`,performance:`ביצועים`,issues:`עיין ברשומות`};export{e as default};
