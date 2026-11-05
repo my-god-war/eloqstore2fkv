@@ -13,38 +13,38 @@
 
 | 目录 | 条目数 | 说明 |
 |---|---:|---|
-| `new/` | 9 | 已复核为真缺口，待开发（不含本索引） |
+| `new/` | 5 | 已复核为真缺口，待开发（不含本索引） |
 | `todo/` | 0 | 无待开发条目 |
 | `done/` | 9 | 已开发 + 测试证据，待复审后归档 |
-| `reviewed/` | 291 | 已复审归档；含 `00-*.md` 主题报告 |
+| `reviewed/` | 295 | 已复审归档；含 `00-*.md` 主题报告 |
 | `reject/` | 10 | 不采纳或已失效 |
 
 ## 当前仍缺什么
 
-原索引把 6 条 gap 移入 `reviewed/` 并声称“均为验证 / 工具链债务”不成立。
-2026-11-05 复核已重新打开，`new/` 现有 8 条真缺口：
+`new/` 现有 5 条，均为复核后的真缺口；其中 3 条只剩 C++ / CI 半侧：
 
-- [`gap-01`](../new/gap-01-ledger-todo-vs-scope-out-reconciliation.md)：
-  账本 543 todo 未分流；`map` / `ignore` 工具已实现但从未运行。
 - [`gap-02`](../new/gap-02-engine-level-v2-v4-cross-read.md)：
-  `mapping` / `store` oracle 直接 exit 3，6 个占位语料；引擎级 V2/V4 未执行。
+  Rust 打开 C++ 产出的 **store 目录**、Rust 续写 → C++ 读回仍为 0。格式层（含
+  `mapping` / `store` 信封）已双向验证，但不构成引擎级结论，`L1` 升级前置未变。
+  **需在 4 KiB Linux 构建 eloqstore，本机做不了。**
 - [`gap-03`](../new/gap-03-v3-op-log-differential.md)：
-  `OpRecord` 无 payload、无序列化、无 replay driver。
+  Rust 半侧已落地（文本 op-log + 确定性 dump + 6 条场景）；C++ 半侧的 dump 差分未做，
+  与 gap-02 同一环境前置。
 - [`gap-04`](../new/gap-04-v5-crash-fuzz-closure.md)：
-  无 kill point 枚举闭环，`kill_point` 的 abort 从未被触发。
+  真后端 intra-op 闭环与撕裂尾物化已落地（见 reviewed/gap-10、`fkv_store/tests/`
+  的 `crash_failpoint_invariants.rs` / `torn_manifest.rs`）；「随机 kill point」与
+  「失败输出含 `seed` / `op_index`」未做。
 - [`gap-05`](../new/gap-05-v6-perf-baseline-asset.md)：
-  两个仓都没有 `perf.yml`，没有任何可阻断的性能门槛或基线资产。
-- [`gap-06`](../new/gap-06-request-deadline-config-unreachable.md)：
-  `KvOption` 无 timeout 字段，`start_runtime` 不接线，功能缺口。
-- [`gap-07`](../new/gap-07-fkv-io-sim-unwired.md)：
-  `fkv_io_sim` 是孤立 crate，引擎级 crash / replay 接不起来。
-- [`gap-08`](../new/gap-08-fixture-tests-silent-skip.md)：
-  oracle 语料缺失时测试静默 pass，CI 绿灯不能证明 oracle 跑过。
-- [`gap-11`](../new/gap-11-failpoint-name-sets-diverged-between-backends.md)：
-  compio / sim 的 failpoint 名字集合已发散，未命中会静默 no-op。
+  `perf.yml` 门槛机制已落地（缺资产即 `exit 78` 变红、含 4 KiB 断言）；
+  **基线资产仍未产出**，需在 4 KiB runner 上跑一次
+  `workflow_dispatch + publish_baseline=true`。
 - [`gap-13`](../new/gap-13-torn-padding-defence-deleted-in-unrelated-commit.md)：
-  撕裂 padding 防线曾被无关 commit 删除并红着落地；剩余动作是让 husky 的 fmt
-  检查变成阻断式（当前 `|| true`），CI 本身已覆盖全工作区。
+  回归已由上游 `0ba0ed5` 修复；剩余只有 husky `pre-commit` 的 `|| true`（一行，
+  且属并发会话正在改的 workflows 区域）。
+
+本轮回审后归档（实现均已落地，详见各文件「复审归档」节）：
+`gap-01`（账本 543 条分流；`scaffold` 判定低价值未做）、`gap-06`（请求 deadline 配置面）、
+`gap-07`（`fkv_io_sim` 接线）、`gap-08`（语料静默跳过）。
 
 已登记的范围外 / 有意差异（不重复列 issue）：
 
@@ -70,7 +70,7 @@
 
 ## 已复审（reviewed）
 
-291 条已归档；主题报告按轮次：
+295 条已归档；主题报告按轮次：
 
 - `00-r6-*.md`（6 份）
 - `00-r7-group1.md` … `00-r7-group5.md`

@@ -53,3 +53,22 @@ dragon 的剩余工作盘点（用户 2026-11-05 指定按 `issue/new.md` 流程
 
 原 index 把它归为“已跟踪的验证债务”不成立：`ignored=0`、`<unmapped>=352`，
 `map` / `ignore` 工具虽已实现但从未运行。重新打开，按 gap-01 目标执行分流。
+
+## 复审归档（2026-11-05）
+
+工作已落地，本轮复审逐项复核成立后归档到 `issue/reviewed/`。跳过 `done/`：这些条目的
+实现在本轮复审之前就已提交，`done/` 只用于本轮亲自开发并附测试证据的条目。
+`new/` 只留仍未落地的条目。
+
+证据（复核命令与结果）：
+
+- `tool/fkv_ledger/src/classify.rs`（新增）+ `doc/ledger-classification.tsv`：
+  543 条逐条裁定，`awk` 统计 `312 map / 231 ignore`，**空理由 0 条**，理由均指向具体
+  issue id 与 `COMPAT_BASELINE` 段落。
+- `doc/progress.md:9`：`分流口径：todo 312 / ignored（范围外裁定）231 / <unmapped> 0`，
+  `<unmapped>` 归零；覆盖率 0% → 12.5%。
+- `map` / `ignore` 早已实现（`map.rs:133/152`、`ledger.rs:420`），本轮确认已被真正运行过。
+
+未随本项关闭：**`scaffold` 子命令仍未实现**。判定为**低价值**：fkv 已功能完整
+（工作区 1002 测试全绿），账本剩余的 312 条 todo 绝大多数是范围外残留，为其生成空壳
+骨架的收益低于维护成本。若将来需要，按 `doc/migration-tooling.md` 的 P1 行单独开发。

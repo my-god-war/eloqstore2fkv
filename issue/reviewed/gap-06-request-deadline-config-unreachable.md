@@ -62,3 +62,22 @@ dragon 的剩余工作盘点。
 
 原 index 把它归为“验证债务”不成立：`KvOption` 无超时字段，`start_runtime`
 不链式配置，是典型功能缺口。直接开发。
+
+## 复审归档（2026-11-05）
+
+工作已落地，本轮复审逐项复核成立后归档到 `issue/reviewed/`。跳过 `done/`：这些条目的
+实现在本轮复审之前就已提交，`done/` 只用于本轮亲自开发并附测试证据的条目。
+`new/` 只留仍未落地的条目。
+
+证据（复核命令与结果）：
+
+- `crate/foundation/fkv_config/src/lib.rs`：`request_timeout_us` /
+  `request_queue_timeout_us` 两个 `Ext` 键（默认 `0` = 未配置）+ `request_timeout()` /
+  `queue_timeout()` / `resolve_timeout()` 解析器，Cloud 未配置时回退
+  `DEFAULT_CLOUD_REQUEST_TIMEOUT_US`（30s，依据 `fkv_object_s3` 的重试窗口）。
+- `crate/facade/fkv/src/lib.rs` 的 `start_runtime` 链式套用
+  `Runtime::with_request_timeout` / `with_queue_timeout`。
+- 测试：`fkv_config/tests/config.rs::request_timeout_keys_parse_and_resolve_by_mode`；
+  `fkv/tests/runtime_entry.rs` 三条（INI→`Timeout`、饱和→`Busy` 带上界、不配置保持旧行为）。
+
+无残余项。
