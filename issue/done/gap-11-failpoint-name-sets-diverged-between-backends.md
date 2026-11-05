@@ -60,3 +60,34 @@ WriteFile:Rename WriteFile:SyncFail WritePage WriteSegments
 - fuzz 驱动枚举名字时，任一后端未命中任何 arm 的名字会**报错**而非静默通过；
 - 两边名字集合的差异（若有）在代码里以显式白名单 + 理由出现，而不是隐含在
   两处 `rg` 的差集里。
+
+## 处置（2026-11-05）—— 已实现，且改成编译期消除而非测试比对
+
+原「建议 1/2」设想用**源码扫描 + 集合一致性测试**。落地前按 `rust_review` 规范复核后
+否决了该方案：规范第 10 行「严禁盲目使用正则」、第 130 行「严禁编写常量 == 常量本身
+之类的废话测试」。改为**让漂移写不出来**：
+
+1. **`fkv_failpoint::points` 是名字的唯一来源**（13 个常量，按前缀分组注释），并提供
+   `COMPIO` / `SIM` / `CLOUD` 三个子集清单供枚举式驱动使用。
+2. **`fail_point!` / `kill_point!` 宏只接受 `points` 的常量标识符**
+   （`$name:ident` → `$crate::points::$name`）。写字符串字面量或未定义标识符直接编译失败，
+   因此「某后端新增一个别处没有的点名」不可能悄悄发生。
+3. **38 处生产埋点全部改为常量引用**（compio 19 / sim 18 / cloud 1），
+   `rg 'fkv_failpoint::(fail_point|kill_point)[!(]\s*"'` 残留 **0**。
+
+顺带消除了发散的一个方向：gap-12 把 `WRITE_FILE_RENAME` 补进 compio 后，
+**sim 的名字集合现在是 compio 的真子集**。剩余 3 个 compio-only 名字
+（`SYNC_DIR`、`ATOMIC_SYNC_DIR`、`APPEND_SYNC_FAIL`）依赖 sim 掉电模型里不存在的概念
+（目录项持久化、manifest 写可失败），属**有意缺失**，理由写在 `points::SIM` 的文档注释里 ——
+正是本条目验收第 3 条要求的「显式白名单 + 理由」。
+
+验收对照：
+
+| 验收 | 落实方式 |
+|---|---|
+| 因「某后端新增别处没有的点名」而失败 | **升级为编译失败**（比测试更强）。反向验证实测：插入 `fkv_failpoint::fail_point!("DoorBell:New")` → `error: no rules expected "DoorBell:New"` |
+| 枚举时未命中的名字不许静默通过 | 运行时那一半仍由 `fkv_store/tests/crash_failpoint_invariants.rs` 的 `aborted > 0` 承担（每个 kill 名字必须在 6 条 op 内真的 abort 过） |
+| 差异以显式白名单 + 理由出现 | `points::COMPIO` / `points::SIM` 常量 + `SIM` 文档注释 |
+
+验证：`sh/clippy.sh` 零警告且 `--fix` 无改动；`./test.sh` → 1002 passed / 1 skipped；
+`-p fkv_failpoint -p fkv_io_sim -p fkv_io_compio -p fkv_store` → 251 passed。

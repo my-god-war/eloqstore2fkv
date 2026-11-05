@@ -13,9 +13,9 @@
 
 | 目录 | 条目数 | 说明 |
 |---|---:|---|
-| `new/` | 12 | 已复核为真缺口，待开发（不含本索引） |
+| `new/` | 11 | 已复核为真缺口，待开发（不含本索引） |
 | `todo/` | 0 | 无待开发条目 |
-| `done/` | 6 | 已开发 + 测试证据，待复审后归档 |
+| `done/` | 7 | 已开发 + 测试证据，待复审后归档 |
 | `reviewed/` | 291 | 已复审归档；含 `00-*.md` 主题报告 |
 | `reject/` | 10 | 不采纳或已失效 |
 
@@ -58,10 +58,11 @@
   [`COMPAT_BASELINE`](../../COMPAT_BASELINE) 与
   [`06-gaps.md`](../../../fkv/doc/architecture/06-gaps.md)。
 
-## 已完成待复审（done，6）
+## 已完成待复审（done，7）
 
 | 文件 | 结论 |
 |---|---|
+| [`gap-11`](../done/gap-11-failpoint-name-sets-diverged-between-backends.md) | 名字收敛到 `fkv_failpoint::points` 常量；`fail_point!`/`kill_point!` 只收常量标识符 → 漂移改为编译失败 |
 | [`gap-12`](../done/gap-12-compio-kill-point-placement-gaps.md) | compio 注入点名字↔窗口一一对应：`:Rename` 移到 `rename` 之后，补 `WriteFile:Rename` 与 `SyncDir` kill 点，`reset_manifest` 截断契约入文档 |
 | [`r10b-01`](../done/r10b-01-open-table-li-dead-pub-accessor-misleading-doc.md) | `open_table_li` 文档改为测试/诊断接缝 |
 | [`v-01`](../done/v-01-fkv-config-overflow-pointers-validate-boundary-untested.md) | `overflow_pointers` 0/MAX/MAX+1 校验测试 |
