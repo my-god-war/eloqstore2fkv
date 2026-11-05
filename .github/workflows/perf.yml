@@ -90,7 +90,8 @@ jobs:
             build-essential cmake ninja-build git curl ca-certificates pkg-config \
             libboost-all-dev libjsoncpp-dev libzstd-dev libssl-dev libaio-dev \
             liburing-dev libgoogle-glog-dev libgflags-dev libcurl4-openssl-dev \
-            libprotobuf-dev libprotoc-dev protobuf-compiler libleveldb-dev libzmq3-dev
+            libprotobuf-dev libprotoc-dev protobuf-compiler libleveldb-dev \
+            libzmq3-dev cppzmq-dev
       - name: fetch pinned eloqstore
         run: scripts/fetch_eloqstore.sh
       - name: build simple_bench
