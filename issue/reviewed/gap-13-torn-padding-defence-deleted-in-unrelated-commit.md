@@ -103,3 +103,18 @@ $ cargo nextest run --workspace --all-features
 - 提交前检查清单包含 `-p fkv_task_reopen -p fkv_store`；
 - 后续同类「无关 commit 顺带删除防线」能被 `git diff <prev> <new> --stat` 审阅时一眼看到
   （建议 review 时对与主题不符的文件改动强制要求说明）。
+
+## 复审归档（2026-11-05）
+
+工作已落地，本轮复审逐项复核成立后归档到 `issue/reviewed/`（跳过 `done/`：实现与文档
+在本轮复审之前或与他人并发提交中完成）。
+
+- **回归本身**已由上游 `0ba0ed5` 修复（`git show 0ba0ed5 --
+  crate/engine/fkv_task_reopen/src/lib.rs` 与当初的删除逐行互为反向）。
+- **剩余动作**（把 `.husky/pre-commit` 的 fmt 检查变成阻断式）已落地：
+  `cargo +nightly fmt --check` 后的 `|| true` 已去掉，见 `2e1135e`。
+- 建议保留的 store 级探测器 `fkv_store/tests/torn_manifest.rs`（3 条：padding 截断 /
+  垃圾尾 / 中间损坏）已在仓内，且去掉读侧 torn `break` 时会变红。
+
+修正记录：本文件原先「CI 覆盖缺口」的判断有误 —— CI 本就跑全工作区
+（`ci.yml:37`），真正的空转在钩子与「红着未推」，归档前已在文件内更正。

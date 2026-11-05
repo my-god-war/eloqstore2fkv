@@ -13,38 +13,34 @@
 
 | 目录 | 条目数 | 说明 |
 |---|---:|---|
-| `new/` | 5 | 已复核为真缺口，待开发（不含本索引） |
+| `new/` | 3 | 已复核为真缺口，待开发（不含本索引） |
 | `todo/` | 0 | 无待开发条目 |
 | `done/` | 9 | 已开发 + 测试证据，待复审后归档 |
-| `reviewed/` | 295 | 已复审归档；含 `00-*.md` 主题报告 |
+| `reviewed/` | 297 | 已复审归档；含 `00-*.md` 主题报告 |
 | `reject/` | 10 | 不采纳或已失效 |
 
 ## 当前仍缺什么
 
-`new/` 现有 5 条，均为复核后的真缺口；其中 3 条只剩 C++ / CI 半侧：
+`new/` 只剩 3 条，**全部是 C++ / CI 半侧** —— 本机（macOS）没有 eloqstore 的构建与
+4 KiB 页环境，做不了它们的验证闭环：
 
 - [`gap-02`](../new/gap-02-engine-level-v2-v4-cross-read.md)：
   Rust 打开 C++ 产出的 **store 目录**、Rust 续写 → C++ 读回仍为 0。格式层（含
   `mapping` / `store` 信封）已双向验证，但不构成引擎级结论，`L1` 升级前置未变。
-  **需在 4 KiB Linux 构建 eloqstore，本机做不了。**
 - [`gap-03`](../new/gap-03-v3-op-log-differential.md)：
-  Rust 半侧已落地（文本 op-log + 确定性 dump + 6 条场景）；C++ 半侧的 dump 差分未做，
-  与 gap-02 同一环境前置。
-- [`gap-04`](../new/gap-04-v5-crash-fuzz-closure.md)：
-  真后端 intra-op 闭环与撕裂尾物化已落地（见 reviewed/gap-10、`fkv_store/tests/`
-  的 `crash_failpoint_invariants.rs` / `torn_manifest.rs`）；「随机 kill point」与
-  「失败输出含 `seed` / `op_index`」未做。
+  Rust 半侧已落地（文本 op-log + 确定性 dump + 6 条场景）；C++ 半侧的同一 op log
+  双实现 dump 差分未做，与 gap-02 同一环境前置。
 - [`gap-05`](../new/gap-05-v6-perf-baseline-asset.md)：
-  `perf.yml` 门槛机制已落地（缺资产即 `exit 78` 变红、含 4 KiB 断言）；
-  **基线资产仍未产出**，需在 4 KiB runner 上跑一次
+  `perf.yml` + `scripts/perf_gate.sh` 已接成**可阻断**门槛（缺资产即 `exit 78` 变红、
+  含 4 KiB 断言）；**基线资产仍未产出**，需在 4 KiB runner 上跑一次
   `workflow_dispatch + publish_baseline=true`。
-- [`gap-13`](../new/gap-13-torn-padding-defence-deleted-in-unrelated-commit.md)：
-  回归已由上游 `0ba0ed5` 修复；剩余只有 husky `pre-commit` 的 `|| true`（一行，
-  且属并发会话正在改的 workflows 区域）。
 
 本轮回审后归档（实现均已落地，详见各文件「复审归档」节）：
-`gap-01`（账本 543 条分流；`scaffold` 判定低价值未做）、`gap-06`（请求 deadline 配置面）、
-`gap-07`（`fkv_io_sim` 接线）、`gap-08`（语料静默跳过）。
+
+- `gap-01`（账本 543 条分流；`scaffold` 判定低价值未做）、`gap-06`（请求 deadline 配置面）、
+  `gap-07`（`fkv_io_sim` 接线）、`gap-08`（语料静默跳过）；
+- `gap-04`（V5 崩溃闭环四条验收全达成；残余已由 `doc/migration.md` §5 的 V5 段接管）、
+  `gap-13`（回归由上游 `0ba0ed5` 修复；husky 的 fmt 检查已改为阻断式，见 `2e1135e`）。
 
 已登记的范围外 / 有意差异（不重复列 issue）：
 
@@ -70,7 +66,7 @@
 
 ## 已复审（reviewed）
 
-295 条已归档；主题报告按轮次：
+297 条已归档；主题报告按轮次：
 
 - `00-r6-*.md`（6 份）
 - `00-r7-group1.md` … `00-r7-group5.md`

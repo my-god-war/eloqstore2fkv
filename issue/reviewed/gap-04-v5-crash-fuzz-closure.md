@@ -56,3 +56,23 @@ dragon 的剩余工作盘点；`doc/migration.md` §5 自述 V5 现状。
 
 原 index 把它归为“验证债务”不成立：`fkv_io_sim` 没有任何 crate 依赖，
 `kill_point` 的 abort 也从未被触发过。先做 gap-07 的接线，再做闭环。
+
+## 复审归档（2026-11-05）
+
+工作已落地，本轮复审逐项复核成立后归档到 `issue/reviewed/`（跳过 `done/`：实现与文档
+在本轮复审之前或与他人并发提交中完成）。
+
+四条验收逐条落实：
+
+| 验收 | 落实 |
+|---|---|
+| 给定 op log + kill point 列表跑不变量校验 | `fkv_io_sim/tests/op_log_replay.rs`（6 条 op log × 每个逻辑 op 边界）+ `fkv_store/tests/crash_failpoint_invariants.rs`（真实 compio 后端，7 个命名 kill point × 命中序号） |
+| 反向验证：制造已知缺陷时用例必须失败 | 本仓两条：去掉 `fkv_task_reopen` 的撕裂 padding 分支 → 变红；`crash_clean_prefix_checker_rejects_bad_state` 连**检查器本身**也反向验证 |
+| 失败输出含 seed / kill_point / op_index，可一键复现 | `crash_context()` 打印 `seed=` / `kill_point=` / `op_index=` 与可粘贴的复现命令；`crash_failure_context_contains_repro_fields` 逐字段断言；`OP_MARKER` 让父进程能报出崩溃时正在执行的 op（`abort()` 后子进程无法再汇报） |
+| `doc/migration.md` §5 的 V5 描述改为「有闭环 + 覆盖点数」 | `doc/migration.md:181-187` 已写明：sim 侧 6 条 op log、真后端 7 个 kill point × 默认 6 次命中（`FKV_CRASH_HIT_MAX` 可调）；`fkv/doc/architecture/05-persistence-and-recovery.md` 与 `06-gaps.md` 同步 |
+
+**残余已由文档接管**，不再挂在本条：24h 持续 fuzz、指令级随机 kill point（需要指令级注入
+设施）、sim 的目录项语义、`CloudManifest:Put` —— `doc/migration.md` §5 的 V5 段已逐项列出。
+
+验证：`./test.sh` → 1004 passed / 1 skipped；`cargo +nightly clippy -p fkv_store --tests
+--all-targets --all-features -- -D warnings` → 0。
