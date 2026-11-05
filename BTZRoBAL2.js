@@ -1,0 +1,1 @@
+var e=[[`ritorn`],[`għeluq`],[`kodiċi`],[`kopja`,`Ikkupjat b'suċċess`],[`editja`],[`Jekk jogħġbok agħżel il-lingwa tiegħek`,`lingwa`],[{"":`Home`,doc:`dokument`,blog:`blog`},`Fl-era ta 'intelliġenza artifiċjali, paradigma ġdida għall-iżvilupp front-end`]];export{e as default};

@@ -1,0 +1,1 @@
+var e=[[`itzuli`],[`itxiera`],[`kodea`],[`kopiatu`,`Ondo kopiatu da`],[`editatu`],[`Mesedez, hautatu zure hizkuntza`,`hizkuntza`],[{"":`Hasierako orria`,doc:`dokumentua`,blog:`bloga`},`Adimen artifizialaren garaian, front-end garapenerako paradigma berri bat`]];export{e as default};

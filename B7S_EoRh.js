@@ -1,0 +1,1 @@
+var e=[[`retour`],[`fermeture`],[`code`],[`copie`,`Copié avec succès`],[`modifier`],[`Veuillez sélectionner votre langue`,`langue`],[{"":`Page d'accueil`,doc:`document`,blog:`bloguer`},`À l’ère de l’intelligence artificielle, un nouveau paradigme pour le développement front-end`]];export{e as default};

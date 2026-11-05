@@ -1,0 +1,1 @@
+var e=[[`qayıtmaq`],[`bağlanması`],[`kod`],[`surəti`,`Uğurla kopyalandı`],[`redaktə et`],[`Zəhmət olmasa dilinizi seçin`,`dil`],[{"":`Əsas səhifə`,doc:`sənəd`,blog:`blog`},`Süni intellekt dövründə, front-end inkişafı üçün yeni bir paradiqma`]];export{e as default};

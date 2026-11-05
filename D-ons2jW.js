@@ -1,0 +1,1 @@
+var e=[[`bumalik`],[`pagsasara`],[`code`],[`kopyahin`,`Matagumpay na nakopya`],[`i-edit`],[`Mangyaring piliin ang iyong wika`,`wika`],[{"":`Home`,doc:`dokumento`,blog:`blog`},`Sa panahon ng artificial intelligence, isang bagong paradigm para sa front-end development`]];export{e as default};

@@ -1,0 +1,1 @@
+var e=[[`återvända`],[`stängning`],[`koda`],[`kopiera`,`Kopierades framgångsrikt`],[`redigera`],[`Välj ditt språk`,`språk`],[{"":`Hemsida`,doc:`dokumentera`,blog:`blogg`},`I en tid präglad av artificiell intelligens, ett nytt paradigm för front-end-utveckling`]];export{e as default};

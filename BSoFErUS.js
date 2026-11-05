@@ -1,0 +1,1 @@
+var e=[[`kurudi`],[`kufungwa`],[`kanuni`],[`nakala`,`Imenakiliwa`],[`hariri`],[`Tafadhali chagua lugha yako`,`lugha`],[{"":`Ukurasa wa nyumbani`,doc:`hati`,blog:`blogu`},`Katika enzi ya akili ya bandia, dhana mpya ya maendeleo ya mbele`]];export{e as default};

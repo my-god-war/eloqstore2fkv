@@ -1,0 +1,1 @@
+var e=[[`grąžinti`],[`uždarymas`],[`kodas`],[`kopija`,`Nukopijuota sėkmingai`],[`redaguoti`],[`Pasirinkite savo kalbą`,`kalba`],[{"":`Pagrindinis puslapis`,doc:`dokumentas`,blog:`dienoraštį`},`Dirbtinio intelekto eroje – nauja priekinio kūrimo paradigma`]];export{e as default};

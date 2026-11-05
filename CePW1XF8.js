@@ -1,0 +1,1 @@
+var e=[[`qaytish`],[`yopilish`],[`kod`],[`nusxa ko'chirish`,`Muvaffaqiyatli nusxalandi`],[`tahrirlash`],[`Tilingizni tanlang`,`til`],[{"":`Bosh sahifa`,doc:`hujjat`,blog:`blog`},`Sun'iy intellekt davrida front-end rivojlanish uchun yangi paradigma`]];export{e as default};

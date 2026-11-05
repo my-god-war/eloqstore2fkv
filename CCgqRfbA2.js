@@ -1,0 +1,1 @@
+var e=[[`skila`],[`lokun`],[`kóða`],[`afrit`,`Afritað tókst`],[`breyta`],[`Vinsamlegast veldu tungumálið þitt`,`tungumál`],[{"":`Heimasíða`,doc:`skjal`,blog:`blogg`},`Á tímum gervigreindar, ný hugmyndafræði fyrir framhliðarþróun`]];export{e as default};

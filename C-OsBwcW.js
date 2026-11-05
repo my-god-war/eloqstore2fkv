@@ -1,0 +1,1 @@
+var e=[[`retur`],[`stenging`],[`kode`],[`kopiere`,`Kopiert vellykket`],[`redigere`],[`Vennligst velg språket ditt`,`språk`],[{"":`Hjemmeside`,doc:`dokument`,blog:`blogg`},`I en tid med kunstig intelligens, et nytt paradigme for front-end-utvikling`]];export{e as default};

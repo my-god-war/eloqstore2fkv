@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`စိစစ်ရေးလုပ်ငန်းစဉ်`,oracle:`C++ oracle`,ledger:`စာရင်းဇယားကို ရွှေ့ပြောင်းပါ။`,performance:`စွမ်းဆောင်ရည်`,issues:`မှတ်တမ်းများကို ပြန်လည်သုံးသပ်ပါ။`};export{e as default};
