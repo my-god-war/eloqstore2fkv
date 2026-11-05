@@ -109,17 +109,27 @@ require_4k_nvme() {
     source=$(df --output=source "$PERF_NVME_ROOT" 2>/dev/null | tail -n 1 || true)
   fi
   if [ -z "$tran" ]; then
-    skip_with_error "无法确认 $PERF_NVME_ROOT 的传输层（findmnt TRAN 为空，source=${source:-unknown}）；需要明确的 nvme 设备"
+    # 容器 / overlay 下 findmnt 常拿不到 TRAN，但 SOURCE 仍是宿主 NVMe。
+    case "$(readlink -f "$source" 2>/dev/null || echo "$source")" in
+      /dev/nvme*) tran=nvme ;;
+      *) skip_with_error "无法确认 $PERF_NVME_ROOT 的传输层（findmnt TRAN 为空，source=${source:-unknown}）；需要明确的 nvme 设备" ;;
+    esac
   fi
   if [ "$tran" != "nvme" ]; then
     skip_with_error "PERF_NVME_ROOT 的传输层是 $tran（$source），需要 nvme"
   fi
   local base rota
   base=$(basename "$(readlink -f "$source" 2>/dev/null || echo "$source")")
+  # 分区设备（nvme0n1p1）没有自己的 queue 属性，取整盘名。
+  if [ ! -r "/sys/block/${base}/queue/rotational" ]; then
+    local parent
+    parent=$(lsblk -no PKNAME "$source" 2>/dev/null | head -n 1 || true)
+    if [ -n "$parent" ]; then
+      base=$parent
+    fi
+  fi
   if [ -n "$base" ] && [ -r "/sys/block/${base}/queue/rotational" ]; then
     rota=$(cat "/sys/block/${base}/queue/rotational")
-  elif [ -n "$base" ] && [ -r "/sys/block/${base%%[0-9]*}/queue/rotational" ]; then
-    rota=$(cat "/sys/block/${base%%[0-9]*}/queue/rotational")
   else
     rota=""
   fi

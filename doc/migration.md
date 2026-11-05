@@ -178,8 +178,12 @@ Rust 对应提供 `finish_without_checksum()` / `build_overflow_without_checksum
   （`fkv_ledger verify` + `fkv_page/fkv_compress/fkv_manifest` 的 `cpp_oracle` 测试）。
 - **V4**：格式层双向——C++ 写 → Rust 读（`fixtures/cpp`）、Rust 写 → C++ 读
   （`fixtures/rust`）；CI `fixture-diff` 重新生成并检查漂移。**引擎级 V4（含续写）未执行**。
-- **V5**：`fkv_failpoint` + `fkv_io_sim::crash/restart` 的定向回归；尚无 24h / 随机
-  kill point 的 crash fuzz 闭环。
+- **V5**：确定性闭环已落地。`fkv_io_sim/tests/op_log_replay.rs` 对 6 条 op log
+  穷举每个逻辑 op 边界，crash + restart + reopen 后与同前缀干净运行逐字节比对；
+  `fkv_store/tests/crash_failpoint_invariants.rs` 在真实 compio 后端穷举 7 个
+  命名 kill point × 命中序号（默认 6 次，`FKV_CRASH_HIT_MAX` 可调），失败信息含
+  seed / kill_point / op_index 与复现命令，前缀检查器另有反向验证。未覆盖 24h
+  持续 fuzz、指令级随机 kill point、sim 目录项语义与 `CloudManifest:Put`。
 - **V3**：未系统化（无同一 op log 的 Rust/C++ 操作差分）。
 - **V6**：`.github/workflows/perf.yml` + `scripts/perf_gate.sh` 已接成**可阻断**门槛：
   下载 fkv 仓的 `perf-latest`（Rust 二进制）与 `perf-baseline`（同 runner C++/Rust
@@ -284,7 +288,7 @@ Rust 对应提供 `finish_without_checksum()` / `build_overflow_without_checksum
 | 压缩 | 验收默认 `enable_compression=false`；压缩读写已实现，但保留决策非逐字节等价（varint 前缀 + 压缩体 vs 仅压缩体） | §8.1、sto-56 |
 | 恢复语义 | main / branch 本地 manifest 的撕裂尾已按 `valid_len` 截断自愈（sto-51/51a）；`CloudStore` 的具名 manifest 截断仍是默认 no-op。`GetMapper` 分配器重建差异按 sto-52 的结论记录，不纳入互操作保证 | [`sto-51`](../issue/reviewed/sto-51-replayer-corrupted-tail-never-overwritten-permanent-corrupted.md)、[`sto-52`](../issue/reject/sto-52-replayer-getmapper-allocator-reconstruction-divergence.md) |
 | branch + large value | C++ `CreateBranch`（82b774c）的 branch snapshot 不传 segment mapping，branch manifest 无 segment 段；Rust 为 large value 分支继承与 main/branch segment file_id 区间隔离仍写该段，**有意差异，不纳入逐字节等价**（plain store 未启用 large value 时两侧 branch snapshot 字节同构）。双向后果：Rust 若对齐 C++ 省略该段，分支重开后父分支 large value 全部不可读（继承被破坏）；C++ 侧自身该组合亦断链——reopen 无 segment 段时 `GetSegmentMapper` 返回空，底页 large value 指针无法解析（上游 `branch_operations` 测试无 large value 用例）。依据：`COMPAT_BASELINE:10-13`、`doc/architecture/06-gaps.md:45` 已有登记 | [02-cpp-create-branch-omits-segment-mapping](../issue/reviewed/02-cpp-create-branch-omits-segment-mapping.md) |
-| 证据 | 格式层 5 类 16 case 双向语料 + CI 漂移检查；`mapping`/`store` 占位 skipped；引擎级 V2/V4、V3/V5/V6 未系统化 | [01-cpp-oracle-and-fixtures](../issue/reviewed/01-cpp-oracle-and-fixtures.md)、[`fixtures/README.md`](../fixtures/README.md) |
+| 证据 | 格式层 5 类 16 case 双向语料 + CI 漂移检查；`mapping`/`store` 占位 skipped；引擎级 V2/V4、V3/V6 未系统化；V5 已有确定性崩溃闭环（Rust 侧不变量，非 C++ 差分） | [01-cpp-oracle-and-fixtures](../issue/reviewed/01-cpp-oracle-and-fixtures.md)、[`fixtures/README.md`](../fixtures/README.md) |
 | 混部（C++ master ↔ Rust replica） | 允许 C++ master 的 `manifest_main_<term>` 被 replica 接收：standby 侧已按本地活跃名 `manifest_main_0` 安装 + 清旧 term manifest + fsync 目录（sto-70）。数据文件读侧已放宽：`fkv_io_compio::scan_dir(dir, branch, term)` 保留全部非当前 identity 变体，`data_path_li` 当前 identity 优先、其余按 term 降序回退（segment 同规则），因此 replica 的 attach term / branch 与 master 写数据时不同也能读到；CloudStore 读侧按 manifest 区间映射出的 `(branch, term)` 定位对象，manifest 指向哪个 term 就读哪个 term。跨 branch 的可见范围仍由 branch 归档 / GC 语义约束 | sto-70 |
 
 升级前置：sto-51 的 Cloud 具名 manifest 截断残余处理完、引擎级 V2/V4（含续写）
