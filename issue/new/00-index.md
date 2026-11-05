@@ -13,9 +13,9 @@
 
 | 目录 | 条目数 | 说明 |
 |---|---:|---|
-| `new/` | 11 | 已复核为真缺口，待开发（不含本索引） |
+| `new/` | 10 | 已复核为真缺口，待开发（不含本索引） |
 | `todo/` | 0 | 无待开发条目 |
-| `done/` | 7 | 已开发 + 测试证据，待复审后归档 |
+| `done/` | 8 | 已开发 + 测试证据，待复审后归档 |
 | `reviewed/` | 291 | 已复审归档；含 `00-*.md` 主题报告 |
 | `reject/` | 10 | 不采纳或已失效 |
 
@@ -42,8 +42,6 @@
   oracle 语料缺失时测试静默 pass，CI 绿灯不能证明 oracle 跑过。
 - [`gap-09`](../new/gap-09-mapping-store-fixtures-fkv-envelope-not-engine-interop.md)：
   mapping/store 是 fkv 自定义 format-envelope，`status=pass` 不等于引擎级互操作。
-- [`gap-10`](../new/gap-10-crash-fuzz-op-boundary-only-no-torn-write.md)：
-  当前 crash fuzz 只在 op 边界，够不到撕裂写 / 半条 manifest。
 - [`gap-11`](../new/gap-11-failpoint-name-sets-diverged-between-backends.md)：
   compio / sim 的 failpoint 名字集合已发散，未命中会静默 no-op。
 - [`gap-13`](../new/gap-13-torn-padding-defence-deleted-in-unrelated-commit.md)：
@@ -58,10 +56,11 @@
   [`COMPAT_BASELINE`](../../COMPAT_BASELINE) 与
   [`06-gaps.md`](../../../fkv/doc/architecture/06-gaps.md)。
 
-## 已完成待复审（done，7）
+## 已完成待复审（done，8）
 
 | 文件 | 结论 |
 |---|---|
+| [`gap-10`](../done/gap-10-crash-fuzz-op-boundary-only-no-torn-write.md) | 崩溃闭环打到真后端：intra-op kill → 重开必须等于某个 op 前缀；撕裂尾盘上物化（截断/垃圾尾/损坏） |
 | [`gap-11`](../done/gap-11-failpoint-name-sets-diverged-between-backends.md) | 名字收敛到 `fkv_failpoint::points` 常量；`fail_point!`/`kill_point!` 只收常量标识符 → 漂移改为编译失败 |
 | [`gap-12`](../done/gap-12-compio-kill-point-placement-gaps.md) | compio 注入点名字↔窗口一一对应：`:Rename` 移到 `rename` 之后，补 `WriteFile:Rename` 与 `SyncDir` kill 点，`reset_manifest` 截断契约入文档 |
 | [`r10b-01`](../done/r10b-01-open-table-li-dead-pub-accessor-misleading-doc.md) | `open_table_li` 文档改为测试/诊断接缝 |

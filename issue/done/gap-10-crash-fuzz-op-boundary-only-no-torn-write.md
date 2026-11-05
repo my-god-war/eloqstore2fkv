@@ -65,3 +65,31 @@ SimStore 侧要补的是**它自己的模型**（tmp→rename 两段式、字节
 - 不变量是「状态等于某个 op 前缀」而非「进程 abort 了」；
 - 撕裂尾有物化用例（盘上截断 / 垃圾尾 / 中间损坏），且去掉读侧 `break` 会变红；
 - 若只做了 sim 侧 intra-op fuzz 而未补 sim 模型，视为未完成。
+
+## 处置（2026-11-05）—— 已实现（真后端路线）
+
+四条验收逐条落实，全部落在**真实 compio 后端**：
+
+| 验收 | 落实 |
+|---|---|
+| failpoint 处中止进程 + 重开校验不变量 | `fkv_store/tests/crash_failpoint_invariants.rs`：子进程在 `WritePage` / `AppendManifest:{Write,Sync}` / `AtomicWriteFile:{Sync,Rename,SyncDir}` / `SyncDir` 七处 abort，父进程重开该目录 |
+| 不变量是「状态等于某个 op 前缀」 | 先跑 7 个干净前缀拿到参照集，断言崩溃后状态 ∈ 该集合；另断言 attach 后无残留 `*.tmp` |
+| 撕裂尾物化 + 去掉读侧 `break` 会变红 | `fkv_store/tests/torn_manifest.rs`：盘上截掉 padding、追加垃圾尾、损坏中间 record；反向验证实测变红 |
+| sim 侧 intra-op fuzz 的条件句 | 未做，且**判断为不该做**（见下） |
+
+### 为什么不给 SimStore 补 mid-op 模型
+
+原「建议 1」要求给 SimStore 加 tmp→rename 两段式、字节级部分 record、目录项耐久性。
+按 `rust_review` 的「避免过度设计」复核后判定**增量覆盖为零**：
+
+1. **部分刷写 sim 已经能表达**：`with_fault(Fault{op: FlushPage, at: k})` 会让 `sync_data`
+   在第 k 页报错，而前 k-1 页**已经** promote 到 `durable`（`fkv_io_sim/src/lib.rs:680-700`
+   的循环），此时再 `crash()` 就得到「刷了一半掉电」的状态；配合 `with_reorder_seed`
+   还能枚举刷写顺序。
+2. **两阶段窗口已由真后端确定性覆盖**：`AppendManifest:Write`（撕裂 record）、
+   `AtomicWriteFile:{Sync,Rename}`（tmp 已耐久未改名）都是 kill point，`abort()` 是确定性的，
+   不比 sim 弱。
+3. 因此给 sim 补 manifest 两阶段只是把已有覆盖再写一遍，属重复投入。
+
+结论：本条按验收关闭；SimStore 的掉电模型保持现状（volatile/durable 两层），
+其能力边界已在本文件上方写清，未来若要在 sim 上做 intra-op fuzz，须先补模型。
