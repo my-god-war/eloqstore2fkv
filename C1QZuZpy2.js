@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`Patvirtinimo procesas`,oracle:`C++ oracle`,ledger:`Perkelti knygą`,performance:`Našumas`,issues:`Peržiūrėkite įrašus`};export{e as default};

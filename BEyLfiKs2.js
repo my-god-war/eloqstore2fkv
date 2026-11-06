@@ -1,0 +1,1 @@
+var e=[[`tagasi`],[`sulgemine`],[`kood`],[`kopeerida`,`Kopeerimine õnnestus`],[`muuda`],[`Palun valige oma keel`,`keel`],[{"":`Avaleht`,doc:`dokument`,blog:`ajaveebi`},`Tehisintellekti ajastul uus esiotsa arendamise paradigma`]];export{e as default};

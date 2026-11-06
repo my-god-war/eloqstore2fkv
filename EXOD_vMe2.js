@@ -1,0 +1,1 @@
+var e=[[`Return`],[`Closure`],[`Code`],[`Copy`,`Copied successfully`],[`Edit`],[`Please select your language`,`Language`],[{"":`Home`,doc:`Documentation`,blog:`Blog`},`Migration and compatibility validation for fkv.`]];export{e as default};

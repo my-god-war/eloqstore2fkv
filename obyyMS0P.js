@@ -1,0 +1,1 @@
+var e={"2026-11-06-homepage-and-metrics":[`2026-11-06: Frammistöðutafla heimasíða, stækkun vísis og síður`,`Samanburður á frammistöðu heimasíðunnar, stækkun matsvísa, GitHub síður og fjöltungumál blogg á netinu`,`2026-11-06`],README:[`Breyta log`,`Verkefnauppfærsluskrá og færsla um breytingar á frammistöðu og eindrægni`,`2026-11-06`]};export{e as default};

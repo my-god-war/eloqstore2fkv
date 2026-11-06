@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`पडताळणी प्रक्रिया`,oracle:`C++ oracle`,ledger:`खातेवही स्थलांतरित करा`,performance:`कामगिरी`,issues:`रेकॉर्डचे पुनरावलोकन करा`};export{e as default};

@@ -1,0 +1,1 @@
+var e=[[`povratak`],[`zatvaranje`],[`kod`],[`kopija`,`Kopirano uspješno`],[`edit`],[`Molimo odaberite svoj jezik`,`jezik`],[{"":`Početna stranica`,doc:`dokument`,blog:`blog`},`U eri vještačke inteligencije, nova paradigma za front-end razvoj`]];export{e as default};

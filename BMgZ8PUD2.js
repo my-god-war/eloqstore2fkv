@@ -1,0 +1,1 @@
+var e=[[`bali`],[`penutupan`],[`kode`],[`salinan`,`Kasil disalin`],[`nyunting`],[`Mangga pilih basa sampeyan`,`basa`],[{"":`Kaca ngarep`,doc:`dokumen`,blog:`blog`},`Ing jaman intelijen buatan, paradigma anyar kanggo pangembangan ngarep`]];export{e as default};

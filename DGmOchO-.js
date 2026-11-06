@@ -1,0 +1,1 @@
+var e=[[`terugkeer`],[`sluiting`],[`kode`],[`kopieer`,`Suksesvol gekopieer`],[`wysig`],[`Kies asseblief jou taal`,`taal`],[{"":`Tuisblad`,doc:`dokument`,blog:`blog`},`In die era van kunsmatige intelligensie, 'n nuwe paradigma vir front-end ontwikkeling`]];export{e as default};

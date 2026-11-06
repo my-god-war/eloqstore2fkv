@@ -1,0 +1,1 @@
+var e=[[`palata`],[`päättäminen`],[`koodi`],[`kopioida`,`Kopiointi onnistui`],[`muokata`],[`Valitse kieli`,`kieli`],[{"":`Kotisivu`,doc:`asiakirja`,blog:`blogi`},`Tekoälyn aikakaudella uusi paradigma etupään kehitykselle`]];export{e as default};

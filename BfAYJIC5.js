@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`Procesi i verifikimit`,oracle:`C++ oracle`,ledger:`Migrimi i librit`,performance:`Performanca`,issues:`Rishikoni të dhënat`};export{e as default};

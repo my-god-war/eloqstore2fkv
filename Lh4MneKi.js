@@ -1,0 +1,1 @@
+var e=[[`trở lại`],[`đóng cửa`],[`mã số`],[`sao chép`,`Đã sao chép thành công`],[`biên tập`],[`Vui lòng chọn ngôn ngữ của bạn`,`ngôn ngữ`],[{"":`Trang chủ`,doc:`tài liệu`,blog:`blog`},`Trong kỷ nguyên trí tuệ nhân tạo, mô hình mới cho phát triển front-end`]];export{e as default};

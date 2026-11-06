@@ -1,0 +1,1 @@
+var e={"2026-11-06-homepage-and-metrics":[`06-11-2026: Tabel kinerja halaman beranda, perluasan indikator, dan Halaman`,`Perbandingan kinerja halaman beranda, perluasan indikator evaluasi, Halaman GitHub dan blog multi-bahasa online`,`2026-11-06`],README:[`Ubah catatan`,`Log pembaruan proyek dan entri perubahan kinerja dan kompatibilitas`,`2026-11-06`]};export{e as default};

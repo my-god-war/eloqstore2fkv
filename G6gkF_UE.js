@@ -1,0 +1,1 @@
+var e=[[`dychwelyd`],[`gau`],[`cod`],[`copi`,`Wedi'i gopïo'n llwyddiannus`],[`golygu`],[`Dewiswch eich iaith`,`iaith`],[{"":`Tudalen gartref`,doc:`dogfen`,blog:`blog`},`Yn oes deallusrwydd artiffisial, patrwm newydd ar gyfer datblygiad pen blaen`]];export{e as default};

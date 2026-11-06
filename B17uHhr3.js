@@ -1,0 +1,1 @@
+var e={"2026-11-06-homepage-and-metrics":[`2026-11-06: Hjemmesideydelsestabel, indikatorudvidelse og sider`,`Sammenligning af startsideydelse, udvidelse af evalueringsindikator, GitHub-sider og flersprogede blogs online`,`2026-11-06`],README:[`Skift log`,`Projektopdateringslog og ændring af ydeevne og kompatibilitet`,`2026-11-06`]};export{e as default};

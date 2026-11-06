@@ -1,0 +1,1 @@
+var e=[[`opbrengst`],[`sluiting`],[`code`],[`kopiëren`,`Gekopieerd`],[`bewerking`],[`Selecteer uw taal`,`taal`],[{"":`Startpagina`,doc:`document`,blog:`bloggen`},`een nieuw paradigma voor front-end ontwikkeling`]];export{e as default};

@@ -1,0 +1,1 @@
+var e={"2026-11-06-homepage-and-metrics":[`2026-11-06: Avalehe toimivuse tabel, indikaatorite laiendus ja lehed`,`Kodulehe toimivuse võrdlus, hindamisnäitajate laiendamine, GitHubi lehed ja mitmekeelsed ajaveebid võrgus`,`2026-11-06`],README:[`Muuda logi`,`Projekti värskenduste logi ning jõudluse ja ühilduvuse muudatuste kirje`,`2026-11-06`]};export{e as default};

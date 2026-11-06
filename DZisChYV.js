@@ -1,0 +1,1 @@
+var e=[[`powrót`],[`zamknięcie`],[`kod`],[`kopia`,`Skopiowano pomyślnie`],[`redagować`],[`Wybierz swój język`,`język`],[{"":`Strona główna`,doc:`dokument`,blog:`blogu`},`W dobie sztucznej inteligencji nowy paradygmat rozwoju front-endu`]];export{e as default};

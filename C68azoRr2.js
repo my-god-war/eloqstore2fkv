@@ -1,0 +1,1 @@
+var e=[[`visszatérés`],[`bezárás`],[`kód`],[`másolat`,`Sikeres másolás`],[`szerkeszteni`],[`Kérjük, válassza ki a nyelvet`,`nyelv`],[{"":`Kezdőlap`,doc:`dokumentum`,blog:`blog`},`A mesterséges intelligencia korszakában a front-end fejlesztés új paradigmája`]];export{e as default};

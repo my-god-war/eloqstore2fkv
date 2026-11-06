@@ -1,0 +1,1 @@
+var e=[[`reveni`],[`închidere`],[`cod`],[`copie`,`Copiat cu succes`],[`edita`],[`Vă rugăm să selectați limba dvs`,`limbă`],[{"":`Pagina de start`,doc:`document`,blog:`blog`},`În era inteligenței artificiale, o nouă paradigmă pentru dezvoltarea front-end`]];export{e as default};

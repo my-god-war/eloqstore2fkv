@@ -1,0 +1,1 @@
+var e=[[`pagbalik`],[`pagsira`],[`kodigo`],[`kopya`,`Malampuson nga gikopya`],[`usba`],[`Palihug pilia ang imong pinulongan`,`pinulongan`],[{"":`Panid sa balay`,doc:`dokumento`,blog:`blog`},`Sa panahon sa artipisyal nga paniktik, usa ka bag-ong paradigm alang sa pag-uswag sa unahan`]];export{e as default};

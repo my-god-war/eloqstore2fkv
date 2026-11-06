@@ -1,0 +1,1 @@
+var e=[[`zréck`],[`Ofschloss`],[`Code`],[`kopéieren`,`Erfolleg kopéiert`],[`änneren`],[`Wielt w.e.g. Är Sprooch`,`Sprooch`],[{"":`Homepage`,doc:`Dokument`,blog:`blog`},`An der Ära vun der kënschtlecher Intelligenz, en neit Paradigma fir Front-End Entwécklung`]];export{e as default};

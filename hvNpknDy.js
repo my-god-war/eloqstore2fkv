@@ -1,0 +1,1 @@
+var e={"2026-11-06-homepage-and-metrics":[`2026-11-06: Tuisbladprestasietabel, aanwyseruitbreiding en bladsye`,`Tuisblad prestasie vergelyking, evaluering aanwyser uitbreiding, GitHub Pages en multi-taal blogs aanlyn`,`2026-11-06`],README:[`Verander logboek`,`Projekopdateringlogboek en prestasie- en versoenbaarheidsveranderinginskrywing`,`2026-11-06`]};export{e as default};

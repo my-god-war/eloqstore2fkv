@@ -1,0 +1,1 @@
+var e={"2026-11-06-homepage-and-metrics":[`2026-11-06: Bảng hiệu suất trang chủ, mở rộng chỉ báo và Trang`,`So sánh hiệu suất trang chủ, mở rộng chỉ số đánh giá, Trang GitHub và blog đa ngôn ngữ trực tuyến`,`2026-11-06`],README:[`Nhật ký thay đổi`,`Nhật ký cập nhật dự án và mục thay đổi hiệu suất cũng như khả năng tương thích`,`2026-11-06`]};export{e as default};

@@ -1,0 +1,1 @@
+var e=[[`atgriezties`],[`slēgšana`],[`kodu`],[`kopiju`,`Veiksmīgi nokopēts`],[`rediģēt`],[`Lūdzu, atlasiet savu valodu`,`valodu`],[{"":`Mājas lapa`,doc:`dokumentu`,blog:`emuārs`},`Mākslīgā intelekta laikmetā jauna paradigma priekšgala attīstībai`]];export{e as default};

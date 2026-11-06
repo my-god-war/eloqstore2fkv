@@ -1,0 +1,1 @@
+var e=[[`kembali`],[`penutup`],[`kode`],[`menyalin`,`Berhasil disalin`],[`sunting`],[`Silakan pilih bahasa Anda`,`bahasa`],[{"":`Halaman rumah`,doc:`dokumen`,blog:`blog`},`Di era kecerdasan buatan, paradigma baru untuk pengembangan front-end`]];export{e as default};

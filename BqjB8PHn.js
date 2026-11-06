@@ -1,0 +1,1 @@
+var e=[[`kembali`],[`penutupan`],[`kod`],[`salinan`,`Berjaya disalin`],[`edit`],[`Sila pilih bahasa anda`,`bahasa`],[{"":`Laman utama`,doc:`dokumen`,blog:`blog`},`Dalam era kecerdasan buatan, paradigma baharu untuk pembangunan bahagian hadapan`]];export{e as default};

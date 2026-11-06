@@ -1,0 +1,1 @@
+var e=[[`geri dönmek`],[`kapanış`],[`kod`],[`kopyala`,`Başarıyla kopyalandı`],[`düzenlemek`],[`Lütfen dilinizi seçin`,`dil`],[{"":`Ana sayfa`,doc:`belge`,blog:`blog`},`Yapay zeka çağında ön uç geliştirme için yeni bir paradigma`]];export{e as default};

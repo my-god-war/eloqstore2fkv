@@ -1,0 +1,1 @@
+var e=[[`kthimi`],[`mbyllje`],[`kodi`],[`kopje`,`U kopjua me sukses`],[`redaktoni`],[`Ju lutemi zgjidhni gjuhën tuaj`,`gjuha`],[{"":`Faqja kryesore`,doc:`dokument`,blog:`blog`},`Në epokën e inteligjencës artificiale, një paradigmë e re për zhvillimin e frontit`]];export{e as default};

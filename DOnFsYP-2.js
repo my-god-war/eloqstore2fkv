@@ -1,0 +1,1 @@
+var e={README:`eloqstore2fkv`,workflow:`Staðfestingarferli`,oracle:`C++ oracle`,ledger:`Flytja höfuðbók`,performance:`Afköst`,issues:`Farið yfir skrár`};export{e as default};

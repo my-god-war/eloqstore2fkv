@@ -1,0 +1,1 @@
+var e=[[`vrátiť`],[`uzavretie`],[`kód`],[`kopírovať`,`Úspešne skopírované`],[`upraviť`],[`Vyberte jazyk`,`jazyk`],[{"":`Domovská stránka`,doc:`dokument`,blog:`blog`},`V ére umelej inteligencie nová paradigma pre front-end vývoj`]];export{e as default};
