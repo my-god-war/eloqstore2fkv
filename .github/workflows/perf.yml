@@ -177,8 +177,11 @@ jobs:
         run: |
           # 口径对齐 crates/redb-bench/src/lib.rs：KEY=24B VALUE=150B
           # (kv_size=174)、bulk 5M / 数据集 1M / individual 1k / batch 100×1000 /
-          # reads 1M / scans 500k×10 / removals 500k / 读扫描 3 次中位数；
-          # 缓存两侧固定 64 MiB（低于 1M×174B ≈ 174 MiB 的数据集）。
+          # reads 1M / scans 500k×10 / removals 500k / 读扫描 3 次中位数。
+          # 缓存两侧固定 1 GiB：redb 的 CACHE_SIZE=4 GiB 同样大于其 870 MB 数据集，
+          # 即读阶段在“全驻内存”条件下比较。此前 64 MiB（<174 MB 数据集）时读阶段
+          # 落盘，实测 1 线程 1M 次点读要 18 分 55 秒（~2.6k ops/s），与 redb 口径不符。
+          # --phase-timeout-secs 900：任何阶段卡死 15 分钟即报错退出，不静默挂满 job。
           cargo run --release -p fkv_bench_matrix -- \
             --cpp-lib "$CPP_FFI_LIB" \
             --rust-bin "$RUST_BENCH" \
@@ -189,7 +192,8 @@ jobs:
             --individual-writes 1000 --removals 500000 \
             --kv-size 174 --key-size 24 \
             --reads 1000000 --scans 500000 --scan-len 10 \
-            --samples 3 --cache-bytes 67108864 \
+            --samples 3 --cache-bytes 1073741824 \
+            --phase-timeout-secs 900 \
             --readers 1,4,8,16,32 \
             --markdown "$RUNNER_TEMP/fkv-matrix.md" \
             --json "$RUNNER_TEMP/fkv-matrix.json"

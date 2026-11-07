@@ -15,11 +15,12 @@ use std::{
   env,
   ffi::{CStr, CString, c_char, c_int, c_void},
   fmt::Write as _,
-  fs, io,
+  fs,
+  io::{self, Read},
   path::{Path, PathBuf},
-  process::{Command, ExitCode},
+  process::{Command, ExitCode, Stdio},
   sync::{Mutex, OnceLock},
-  time::Duration,
+  time::{Duration, Instant},
 };
 
 use regex::Regex;
@@ -70,7 +71,8 @@ C++ 引擎选择:
   --scans <n>            range scan 请求数（redb 默认 500000；0=时间窗）
   --scan-len <n>         每次 range scan 的条数（redb 默认 10）
   --removals <n>         删除 key 数（redb 默认 500000）
-  --samples <n>          读/scan/len 重复次数，取中位数（redb 默认 3）
+  --phase-timeout-secs <n> 单个外部进程的墙钟上限（默认 1800；0 关闭）
+  --samples <n>           读/scan/len 重复次数，取中位数（redb 默认 3）
   --markdown <out.md>   额外写一份 Markdown 报告
   --json <out.json>     额外写一份 JSON 报告
   -h, --help            显示本帮助
@@ -176,6 +178,8 @@ pub struct MatrixConfig {
   pub removals: u64,
   /// Repetitions for read / scan / len phases; the median is reported.
   pub samples: usize,
+  /// 每个外部进程的墙钟上限（秒）；0 表示不设上限。
+  pub phase_timeout_secs: u64,
 }
 
 /// Benchmark profile.  `Redb` mirrors redb's published workload; `Legacy`
@@ -329,14 +333,26 @@ fn log_tail(text: &str, lines: usize) -> String {
 
 /// Run a process, tee stdout/stderr into `log_path`, and return the combined
 /// text.  A non-zero exit status is reported with the command and log tail.
-fn execute(bin: &Path, args: &[String], log_path: &Path) -> Result<String, String> {
+/// Run one benchmark process, capturing stdout/stderr into `log_path`.
+///
+/// `timeout` is a wall-clock cap; on expiry the child is killed and the phase
+/// fails loudly instead of hanging the whole job (a stuck reader phase
+/// otherwise burns the CI job limit silently).
+fn execute(
+  bin: &Path,
+  args: &[String],
+  log_path: &Path,
+  timeout: Option<Duration>,
+) -> Result<String, String> {
   ensure_parent(log_path)?;
   let command_line = shell_join(bin, args);
-  let output = Command::new(bin)
+  let mut child = Command::new(bin)
     .args(args)
     .env("GLOG_logtostderr", "1")
     .env("GLOG_minloglevel", "0")
-    .output()
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
     .map_err(|err| {
       format!(
         "failed to execute {}: {err}（检查二进制路径与可执行权限）",
@@ -344,23 +360,75 @@ fn execute(bin: &Path, args: &[String], log_path: &Path) -> Result<String, Strin
       )
     })?;
 
+  // Drain both pipes on helper threads: a phase writing more than the pipe
+  // buffer would otherwise deadlock against our wait loop.
+  let mut child_stdout = child.stdout.take().expect("piped stdout");
+  let mut child_stderr = child.stderr.take().expect("piped stderr");
+  let stdout_reader = std::thread::spawn(move || {
+    let mut buf = Vec::new();
+    let _ = child_stdout.read_to_end(&mut buf);
+    buf
+  });
+  let stderr_reader = std::thread::spawn(move || {
+    let mut buf = Vec::new();
+    let _ = child_stderr.read_to_end(&mut buf);
+    buf
+  });
+
+  let started = Instant::now();
+  let mut timed_out = false;
+  let status = loop {
+    match child.try_wait() {
+      Ok(Some(status)) => break status,
+      Ok(None) => {}
+      Err(err) => {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(format!("wait {}: {err}", bin.display()));
+      }
+    }
+    if let Some(limit) = timeout {
+      if started.elapsed() >= limit {
+        let _ = child.kill();
+        let _ = child.wait();
+        timed_out = true;
+        break Default::default();
+      }
+    }
+    std::thread::sleep(Duration::from_millis(100));
+  };
+  let stdout = stdout_reader.join().unwrap_or_default();
+  let stderr = stderr_reader.join().unwrap_or_default();
+
   let mut text = String::new();
   let _ = writeln!(text, "$ {command_line}");
   let _ = writeln!(text, "--- stdout ---");
-  text.push_str(&String::from_utf8_lossy(&output.stdout));
+  text.push_str(&String::from_utf8_lossy(&stdout));
   let _ = writeln!(text, "\n--- stderr ---");
-  text.push_str(&String::from_utf8_lossy(&output.stderr));
+  text.push_str(&String::from_utf8_lossy(&stderr));
   let _ = fs::write(log_path, &text);
 
-  if !output.status.success() {
+  if timed_out {
+    let limit = timeout.map(|t| t.as_secs()).unwrap_or_default();
     return Err(format!(
-      "command failed ({})\n$ {command_line}\nlog: {}\n--- log tail ---\n{}",
-      output.status,
+      "命令超过 {limit}s 未结束，已终止（--phase-timeout-secs，0 关闭）\n$ {command_line}\nlog: {}\n--- log tail ---\n{}",
+      log_path.display(),
+      log_tail(&text, 40)
+    ));
+  }
+  if !status.success() {
+    return Err(format!(
+      "command failed ({status})\n$ {command_line}\nlog: {}\n--- log tail ---\n{}",
       log_path.display(),
       log_tail(&text, 40)
     ));
   }
   Ok(text)
+}
+
+/// Convert the config's seconds cap into an optional [`Duration`].
+fn phase_timeout(cfg: &MatrixConfig) -> Option<Duration> {
+  (cfg.phase_timeout_secs > 0).then(|| Duration::from_secs(cfg.phase_timeout_secs))
 }
 
 /// Verify that a binary's `--help` advertises the flags we are about to use.
@@ -590,7 +658,12 @@ impl CppEngine {
     label: &str,
     args: &[String],
   ) -> Result<String, String> {
-    execute(&self.bin, args, &self.log_path(cfg, phase, label))
+    execute(
+      &self.bin,
+      args,
+      &self.log_path(cfg, phase, label),
+      phase_timeout(cfg),
+    )
   }
 
   fn run_phase(&self, phase: Phase, cfg: &MatrixConfig) -> Result<PhaseResult, String> {
@@ -871,7 +944,7 @@ fn ffi_readers(phase: Phase) -> u32 {
 }
 
 /// Per-phase `FkvBenchConfig`.
-fn ffi_config(phase: Phase, cfg: &MatrixConfig) -> FfiConfig {
+fn ffi_config(_phase: Phase, cfg: &MatrixConfig) -> FfiConfig {
   FfiConfig {
     rows: cfg.rows as u32,
     bulk_rows: cfg.bulk_rows as u32,
@@ -1408,7 +1481,12 @@ impl FkvEngine {
     label: &str,
     args: &[String],
   ) -> Result<String, String> {
-    execute(&self.bin, args, &self.log_path(cfg, phase, label))
+    execute(
+      &self.bin,
+      args,
+      &self.log_path(cfg, phase, label),
+      phase_timeout(cfg),
+    )
   }
 
   fn load_metrics(&self, history: &Path) -> Result<BTreeMap<String, f64>, String> {
@@ -2095,18 +2173,29 @@ impl MatrixReport {
       value = self.config.value_size,
       kv = self.config.kv_size,
     );
+    let data_mib = (self.config.rows * self.config.kv_size) as f64 / (1024.0 * 1024.0);
+    let cache_mib = self.config.cache_bytes as f64 / (1024.0 * 1024.0);
+    // redb 的 CACHE_SIZE=4 GiB 大于其 870 MB 数据集，即读阶段在“全驻内存”下测量；
+    // 缓存口径必须跟着一起变，否则两侧都在慢盘上抖随机读，测到的是盘而不是引擎。
+    let residency = if cache_mib >= data_mib {
+      "**不低于**数据集，读阶段全驻内存，与 redb（4 GiB 缓存 / 870 MB 数据）同口径"
+    } else {
+      "**低于**数据集，读阶段随机读落盘（冷缓存口径，非 redb 发布条件）"
+    };
     let _ = writeln!(
       out,
-      "- **缓存预算**：两侧都设为 {cache} B（{cache_mib:.1} MiB，受控变量，低于 {rows} × {kv} B ≈ {data_mib:.1} MiB 的数据集）。\
+      "- **缓存预算**：两侧都设为 {cache} B（{cache_mib:.1} MiB，受控变量，{residency}）。\
+       数据集为 {rows} × {kv} B ≈ {data_mib:.1} MiB。\
        C++ `buffer_pool_size` 是**每 shard 上限**、由 index + data page 共享（`enable_data_page_cache=true`）；\
        本矩阵只有 partition 0，只有 shard 0 承载数据并真正使用这份缓存（其余空 shard 不产生页缓存），\
        故工作集可用上限即 {cache_mib:.1} MiB。fkv 是单 store 总预算，对半拆成 index cache / page cache 各 {half_mib:.1} MiB。",
       cache = self.config.cache_bytes,
-      cache_mib = self.config.cache_bytes as f64 / (1024.0 * 1024.0),
+      cache_mib = cache_mib,
+      residency = residency,
       rows = self.config.rows,
       kv = self.config.kv_size,
-      data_mib = (self.config.rows * self.config.kv_size) as f64 / (1024.0 * 1024.0),
-      half_mib = self.config.cache_bytes as f64 / (1024.0 * 1024.0) / 2.0,
+      data_mib = data_mib,
+      half_mib = cache_mib / 2.0,
     );
     out.push_str(
       "- **C++ 并发口径**：`num_threads` 是 EloqStore 的 shard / worker 线程数，\
@@ -2164,6 +2253,7 @@ struct Args {
   scan_len: Option<usize>,
   removals: Option<u64>,
   samples: Option<usize>,
+  phase_timeout_secs: Option<u64>,
   markdown: Option<PathBuf>,
   json: Option<PathBuf>,
 }
@@ -2225,6 +2315,7 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
       | "--scan-len"
       | "--removals"
       | "--samples"
+      | "--phase-timeout-secs"
       | "--markdown"
       | "--json" => {
         let value = args.next().ok_or_else(|| format!("{arg} 缺少参数值"))?;
@@ -2317,6 +2408,10 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
             ensure_unset(&parsed.samples, &arg)?;
             parsed.samples = Some(parse_usize(&arg, &value)?);
           }
+          "--phase-timeout-secs" => {
+            ensure_unset(&parsed.phase_timeout_secs, &arg)?;
+            parsed.phase_timeout_secs = Some(parse_u64(&arg, &value)?);
+          }
           "--markdown" => {
             ensure_unset(&parsed.markdown, &arg)?;
             parsed.markdown = Some(PathBuf::from(value));
@@ -2394,6 +2489,9 @@ fn resolve_config(args: Args) -> Result<(CppBackend, PathBuf, MatrixConfig), Str
     .unwrap_or(if legacy { 0 } else { 64 * MIB });
   let read_secs = args.read_secs.unwrap_or(if legacy { 5.0 } else { 0.0 });
   let readers = args.readers.unwrap_or_else(|| vec![1, 4, 8, 16, 32]);
+  // 单阶段超过 30 分钟几乎必然是卡死（例如读线程与单 shard 争用崩溃），
+  // 直接杀进程并报错，避免 CI 里静默挂满 job 上限。
+  let phase_timeout_secs = args.phase_timeout_secs.unwrap_or(1800);
   let workdir = args.workdir.unwrap_or_else(|| PathBuf::from("/tmp/matrix"));
   let bulk_rows = args
     .bulk_rows
@@ -2485,6 +2583,7 @@ fn resolve_config(args: Args) -> Result<(CppBackend, PathBuf, MatrixConfig), Str
       scan_len,
       removals,
       samples,
+      phase_timeout_secs,
     },
   ))
 }
@@ -2589,6 +2688,7 @@ mod tests {
       scan_len: 0,
       removals: 1000,
       samples: 1,
+      phase_timeout_secs: 1800,
     }
   }
 
@@ -3201,5 +3301,34 @@ mod tests {
     let path = env::temp_dir().join(format!("missing_libfkv_bench_ffi_{unique}.so"));
     let err = CppFfiEngine::new(&path).expect_err("missing library must fail");
     assert!(err.contains("dlopen"), "{err}");
+  }
+
+  /// 卡死的阶段必须在超时后被杀掉，而不是拖垮整个 job。
+  #[test]
+  fn execute_kills_a_hung_process() {
+    let unique = SystemTime::now()
+      .duration_since(SystemTime::UNIX_EPOCH)
+      .expect("clock")
+      .as_nanos();
+    let dir = env::temp_dir().join(format!("fkv_matrix_timeout_{unique}"));
+    fs::create_dir_all(&dir).expect("mkdtemp");
+    let log = dir.join("sleep.log");
+
+    let started = Instant::now();
+    let err = execute(
+      Path::new("/bin/sleep"),
+      &["5".to_owned()],
+      &log,
+      Some(Duration::from_millis(300)),
+    )
+    .expect_err("sleep 5 must be killed by a 300ms cap");
+    assert!(err.contains("未结束"), "{err}");
+    assert!(
+      started.elapsed() < Duration::from_secs(4),
+      "kill 不够及时: {:?}",
+      started.elapsed()
+    );
+    // 日志仍要落盘，便于事后定位卡在哪。
+    assert!(log.exists(), "日志未写出");
   }
 }
