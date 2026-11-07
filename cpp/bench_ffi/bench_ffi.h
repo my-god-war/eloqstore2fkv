@@ -10,10 +10,16 @@
  * calls, so `store_bytes` can be measured before the handle is closed.
  *
  * Key / value shape:
- *   key   = 8-byte big-endian uint64
- *   value = (kv_size - 8) bytes, all 'v'
- * Table is always `bm`, partition 0.  The `partitions` argument is accepted
- * for ABI compatibility but the harness uses one partition.
+ *   key   = `key_size` bytes, zero-padded, with the 8-byte big-endian uint64
+ *           index in the trailing 8 bytes (same encoding as `fkv_bench`)
+ *   value = (kv_size - key_size) bytes, all 'v'
+ * Table is always `bm`, partition 0.  `partitions` is accepted for ABI
+ * compatibility but the harness uses one partition.
+ *
+ * ABI v2 (breaking): `fkv_bench_open` takes a `FkvBenchConfig` so the matrix
+ * can set the C++ key width, shard/thread count, cache budget and the exact
+ * per-phase operation counts (redb workload).  Callers must check
+ * `fkv_bench_abi_version() == 2` before calling `fkv_bench_open`.
  */
 
 #include <stdint.h>
@@ -33,6 +39,51 @@ extern "C"
 
     /** Opaque benchmark handle (one open EloqStore + store path). */
     typedef struct FkvBenchFfi FkvBenchFfi;
+
+    /** ABI version returned by `fkv_bench_abi_version`. */
+    enum
+    {
+        FKV_BENCH_ABI_VERSION = 2
+    };
+
+    /**
+     * Shape of one benchmark handle.
+     *
+     * Layout must stay identical to `FfiConfig` in the Rust matrix crate:
+     * seven uint32 fields, one uint64 field (8-byte aligned), six uint32
+     * fields.
+     */
+    typedef struct
+    {
+        /** Dataset key count for read / scan / len / removal phases. */
+        uint32_t rows;
+        /** Key count written by the bulk_load phase. */
+        uint32_t bulk_rows;
+        /** Entries per batch-write request. */
+        uint32_t batch_size;
+        /** Whole KV width (key + value). */
+        uint32_t kv_size;
+        /** Partition count (the matrix uses 1). */
+        uint32_t partitions;
+        /** Key width in bytes (8 = simple_bench, 24 = redb shape). */
+        uint32_t key_size;
+        /** EloqStore shard / worker threads.  Writes use 1. */
+        uint32_t num_threads;
+        /** Cache budget in bytes; 0 keeps the KvOptions default. */
+        uint64_t buffer_pool_size;
+        /** Number of single-key writes in individual_writes. */
+        uint32_t individual_writes;
+        /** Number of batch requests in batch_writes. */
+        uint32_t batch_writes;
+        /** Number of keys deleted in removals. */
+        uint32_t removals;
+        /** Total point reads across all reader threads. */
+        uint32_t reads;
+        /** Number of range-scan requests. */
+        uint32_t range_scans;
+        /** Entries per range-scan request. */
+        uint32_t range_len;
+    } FkvBenchConfig;
 
     /**
      * Result of one phase.
@@ -63,21 +114,21 @@ extern "C"
         double p99_us;
     } FkvBenchResult;
 
+    /** ABI version of this shim; the matrix refuses to call older builds. */
+    FKV_BENCH_FFI_API uint32_t fkv_bench_abi_version(void);
+
     /**
      * Create a store at `root` and start it on branch "main", term 0.
      *
      * `root` must be a fresh store path (the caller owns directory creation /
-     * cleanup).  `rows` and `batch_size` must be non-zero and `kv_size` must
-     * be greater than 8.
+     * cleanup).  `rows`, `bulk_rows` and `batch_size` must be non-zero and
+     * `kv_size` must be greater than `key_size` (>= 8).
      *
      * On failure returns NULL and makes the error text available through
      * `fkv_bench_last_error(NULL)` on the same thread.
      */
-    FKV_BENCH_FFI_API FkvBenchFfi *fkv_bench_open(const char *root,
-                                                  uint32_t rows,
-                                                  uint32_t batch_size,
-                                                  uint32_t kv_size,
-                                                  uint32_t partitions);
+    FKV_BENCH_FFI_API FkvBenchFfi *fkv_bench_open(
+        const char *root, const FkvBenchConfig *config);
 
     /** Stop the store and release the handle.  NULL is a no-op. */
     FKV_BENCH_FFI_API void fkv_bench_close(FkvBenchFfi *h);

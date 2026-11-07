@@ -28,9 +28,14 @@ use serde::Serialize;
 const USAGE: &str = "\
 用法: fkv_bench_matrix (--cpp-lib <libfkv_bench_ffi.so> | --cpp-bin <simple_bench>)
                        --rust-bin <fkv_bench>
-                       [--workdir <dir>] [--rows <n>] [--batch-size <n>]
-                       [--kv-size <bytes>] [--read-secs <secs>]
+                       [--profile redb|legacy] [--workdir <dir>]
+                       [--rows <n>] [--bulk-rows <n>] [--batch-size <n>]
+                       [--kv-size <bytes>] [--key-size <bytes>]
+                       [--cache-bytes <bytes>] [--read-secs <secs>]
                        [--readers <n[,n...]>] [--scan-bytes <bytes>]
+                       [--individual-writes <n>] [--batch-writes <n>]
+                       [--reads <n>] [--scans <n>] [--scan-len <n>]
+                       [--removals <n>] [--samples <n>]
                        [--markdown <out.md>] [--json <out.json>]
 
 在隔离的 store 目录里分别运行 C++ 引擎与 Rust fkv_bench，输出
@@ -47,12 +52,25 @@ C++ 引擎选择:
 
 选项:
   --workdir <dir>       工作目录（默认 /tmp/matrix）
+  --profile <name>      redb（默认，5M/1M/1k/100x1000/1M/500k/10/500k）
+                        或 legacy（旧的 200k + 时间窗读 / scan）
   --rows <n>            数据集 key 数（默认 1000000）
+  --bulk-rows <n>       bulk load 写入的 key 数（默认 5000000）
   --batch-size <n>      批量写批大小（默认 1000）
-  --kv-size <bytes>     整对 KV 宽度（默认 128）
-  --read-secs <secs>    读/scan 时间窗（默认 10）
-  --readers <list>      点读并发列表，逗号分隔（默认 1,2,4,8）
-  --scan-bytes <bytes>  每个 scan 请求的字节窗口，0=扫到表尾（默认 0）
+  --kv-size <bytes>     整对 KV 宽度（redb 默认 174；legacy 128）
+  --key-size <bytes>    key 宽度（redb 默认 24；legacy 8）
+  --cache-bytes <bytes> 每 store 的总缓存预算（redb 默认 64 MiB；0=引擎默认）
+  --read-secs <secs>    时间窗档的读/scan 窗口（redb 档用固定次数时忽略）
+  --readers <list>      点读并发列表，逗号分隔（默认 1,4,8,16,32）
+  --scan-bytes <bytes>  每个 scan 请求的字节窗口，0=扫到表尾
+                        （redb 默认 scan_len × value_size = 1500）
+  --individual-writes <n> 单条写次数（redb 默认 1000）
+  --batch-writes <n>    批量写请求数（redb 默认 100）
+  --reads <n>           点读总次数（redb 默认 1000000；0=时间窗）
+  --scans <n>            range scan 请求数（redb 默认 500000；0=时间窗）
+  --scan-len <n>         每次 range scan 的条数（redb 默认 10）
+  --removals <n>         删除 key 数（redb 默认 500000）
+  --samples <n>          读/scan/len 重复次数，取中位数（redb 默认 3）
   --markdown <out.md>   额外写一份 Markdown 报告
   --json <out.json>     额外写一份 JSON 报告
   -h, --help            显示本帮助
@@ -131,17 +149,67 @@ mod duration_secs {
 #[derive(Debug, Clone)]
 pub struct MatrixConfig {
   pub workdir: PathBuf,
+  pub profile: Profile,
   pub rows: usize,
+  /// Key count written by the bulk-load phase (redb: 5,000,000).
+  pub bulk_rows: usize,
   pub batch_size: usize,
   pub kv_size: usize,
+  /// Key width; the value width is `kv_size - key_size`.
+  pub key_size: usize,
+  /// Cache budget per store in bytes; 0 = engine default.
+  pub cache_bytes: u64,
   pub read_secs: f64,
   pub readers: Vec<usize>,
   pub scan_bytes: u64,
+  /// Single-key writes in the individual-writes phase.
+  pub individual_writes: u64,
+  /// Number of batch requests in the batch-writes phase.
+  pub batch_writes: u64,
+  /// Total point reads (0 = time window).
+  pub reads: u64,
+  /// Total range-scan requests (0 = time window).
+  pub scans: u64,
+  /// Entries per range scan (0 = `--scan-bytes` window).
+  pub scan_len: usize,
+  /// Keys removed in the removals phase.
+  pub removals: u64,
+  /// Repetitions for read / scan / len phases; the median is reported.
+  pub samples: usize,
+}
+
+/// Benchmark profile.  `Redb` mirrors redb's published workload; `Legacy`
+/// keeps the pre-redb 200k / time-window shape.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Profile {
+  Redb,
+  Legacy,
+}
+
+impl Profile {
+  fn parse(value: &str) -> Result<Self, String> {
+    match value {
+      "redb" => Ok(Self::Redb),
+      "legacy" => Ok(Self::Legacy),
+      other => Err(format!("--profile {other:?} 非法：可选 redb / legacy")),
+    }
+  }
+
+  fn as_str(self) -> &'static str {
+    match self {
+      Self::Redb => "redb",
+      Self::Legacy => "legacy",
+    }
+  }
 }
 
 impl MatrixConfig {
   fn batch_count(&self) -> usize {
-    self.rows.div_ceil(self.batch_size.max(1))
+    self.batch_writes.max(1) as usize
+  }
+
+  fn value_size(&self) -> usize {
+    self.kv_size.saturating_sub(self.key_size)
   }
 
   fn engine_dir(&self, engine: &str) -> PathBuf {
@@ -604,6 +672,13 @@ impl BenchEngine for CppEngine {
     if phase == Phase::Len {
       return Err("C++ simple_bench has no len API".to_owned());
     }
+    if cfg.profile != Profile::Legacy {
+      return Err(
+        "--cpp-bin simple_bench 只支持 --profile legacy；redb 口径请用 --cpp-lib \
+         （FFI shim 支持固定次数与线程数）"
+          .to_owned(),
+      );
+    }
     self.ensure_verified()?;
     self.run_phase(phase, cfg)
   }
@@ -639,16 +714,40 @@ impl BenchEngine for CppEngine {
 // ---------------------------------------------------------------------------
 //
 // The shared library is loaded at runtime so this crate never links the C++
-// store at build time.  The ABI is declared in the task/doc:
+// store at build time.  ABI v2 is declared in `cpp/bench_ffi/bench_ffi.h`:
 //
-//   FkvBenchFfi *fkv_bench_open(const char *root, uint32_t rows,
-//                               uint32_t batch_size, uint32_t kv_size,
-//                               uint32_t partitions);
+//   uint32_t     fkv_bench_abi_version(void);
+//   FkvBenchFfi *fkv_bench_open(const char *root,
+//                               const FkvBenchConfig *config);
 //   void         fkv_bench_close(FkvBenchFfi *h);
 //   int          fkv_bench_run(FkvBenchFfi *h, const char *phase,
 //                              uint32_t readers, double read_secs,
 //                              FkvBenchResult *out);
 //   const char  *fkv_bench_last_error(FkvBenchFfi *h);
+
+/// ABI version this crate expects.  Bumped when `fkv_bench_open` changed from
+/// positional arguments to `FkvBenchConfig`.
+const FFI_ABI_VERSION: u32 = 2;
+
+/// Must stay layout-identical to `FkvBenchConfig` in `bench_ffi.h`.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+struct FfiConfig {
+  rows: u32,
+  bulk_rows: u32,
+  batch_size: u32,
+  kv_size: u32,
+  partitions: u32,
+  key_size: u32,
+  num_threads: u32,
+  buffer_pool_size: u64,
+  individual_writes: u32,
+  batch_writes: u32,
+  removals: u32,
+  reads: u32,
+  range_scans: u32,
+  range_len: u32,
+}
 
 /// C ABI result struct.  Layout must stay identical to `FkvBenchResult` in the
 /// C++ shim.
@@ -660,7 +759,8 @@ struct FfiBenchResult {
   p99_us: f64,
 }
 
-type FfiOpenFn = unsafe extern "C" fn(*const c_char, u32, u32, u32, u32) -> *mut c_void;
+type FfiAbiFn = unsafe extern "C" fn() -> u32;
+type FfiOpenFn = unsafe extern "C" fn(*const c_char, *const FfiConfig) -> *mut c_void;
 type FfiCloseFn = unsafe extern "C" fn(*mut c_void);
 type FfiRunFn =
   unsafe extern "C" fn(*mut c_void, *const c_char, u32, f64, *mut FfiBenchResult) -> c_int;
@@ -723,6 +823,18 @@ fn ffi_resolve<T: Copy>(lib: *mut c_void, name: &str) -> Result<T, String> {
 
 impl FfiApi {
   fn load(lib: *mut c_void) -> Result<Self, String> {
+    let abi_version: FfiAbiFn = ffi_resolve(lib, "fkv_bench_abi_version").map_err(|_| {
+      "libfkv_bench_ffi predates ABI v2 (no fkv_bench_abi_version); \
+       rebuild cpp/bench_ffi"
+        .to_owned()
+    })?;
+    let version = unsafe { abi_version() };
+    if version != FFI_ABI_VERSION {
+      return Err(format!(
+        "libfkv_bench_ffi ABI {version} does not match expected {FFI_ABI_VERSION}; \
+         rebuild cpp/bench_ffi"
+      ));
+    }
     Ok(Self {
       open: ffi_resolve(lib, "fkv_bench_open")?,
       close: ffi_resolve(lib, "fkv_bench_close")?,
@@ -744,13 +856,49 @@ fn ffi_phase_name(phase: Phase) -> &'static str {
   }
 }
 
-/// Reader count / time window passed to `fkv_bench_run`.
-fn ffi_read_window(phase: Phase, cfg: &MatrixConfig) -> (u32, f64) {
+/// Shard / worker threads for a phase.  Writes stay single-threaded (one
+/// partition, serial stream on both engines); point reads use the matrix's
+/// reader count, range scans / len stay single-threaded (redb's scan lane is
+/// single-threaded).
+fn ffi_threads(phase: Phase) -> u32 {
   match phase {
-    Phase::RandomReads { readers } => (readers.min(u32::MAX as usize) as u32, cfg.read_secs),
-    Phase::RangeReads => (1, cfg.read_secs),
-    _ => (1, 0.0),
+    Phase::RandomReads { readers } => readers.min(u32::MAX as usize) as u32,
+    _ => 1,
   }
+}
+
+/// Per-phase `FkvBenchConfig`.
+fn ffi_config(phase: Phase, cfg: &MatrixConfig) -> FfiConfig {
+  FfiConfig {
+    rows: cfg.rows as u32,
+    bulk_rows: cfg.bulk_rows as u32,
+    batch_size: cfg.batch_size as u32,
+    kv_size: cfg.kv_size as u32,
+    partitions: 1,
+    key_size: cfg.key_size as u32,
+    num_threads: ffi_threads(phase),
+    buffer_pool_size: cfg.cache_bytes,
+    individual_writes: cfg.individual_writes as u32,
+    batch_writes: cfg.batch_writes as u32,
+    removals: cfg.removals as u32,
+    reads: cfg.reads as u32,
+    range_scans: cfg.scans as u32,
+    range_len: cfg.scan_len as u32,
+  }
+}
+
+/// Repetitions of one phase; only the read / scan / len lanes are repeated.
+fn phase_samples(phase: Phase, cfg: &MatrixConfig) -> usize {
+  match phase {
+    Phase::RandomReads { .. } | Phase::RangeReads | Phase::Len => cfg.samples.max(1),
+    _ => 1,
+  }
+}
+
+/// Median (by throughput) of repeated phase runs.  `results` is never empty.
+fn median_phase_result(mut results: Vec<PhaseResult>) -> PhaseResult {
+  results.sort_by(|left, right| left.throughput.total_cmp(&right.throughput));
+  results.remove(results.len() / 2)
 }
 
 fn result_from_ffi(raw: FfiBenchResult, phase: &str) -> Result<PhaseResult, String> {
@@ -885,15 +1033,8 @@ impl BenchEngine for CppFfiEngine {
     reset_dir(&root)?;
     let croot = CString::new(root.display().to_string())
       .map_err(|_| format!("store path {:?} contains a NUL byte", root))?;
-    let handle = unsafe {
-      (self.lib.api.open)(
-        croot.as_ptr(),
-        cfg.rows as u32,
-        cfg.batch_size as u32,
-        cfg.kv_size as u32,
-        1,
-      )
-    };
+    let ffi_cfg = ffi_config(phase, cfg);
+    let handle = unsafe { (self.lib.api.open)(croot.as_ptr(), &ffi_cfg) };
     if handle.is_null() {
       return Err(format!(
         "fkv_bench_open({}) returned null: {}",
@@ -904,10 +1045,23 @@ impl BenchEngine for CppFfiEngine {
     set_last_store(&self.last_root, &root)?;
 
     let phase_name = ffi_phase_name(phase);
-    let (readers, read_secs) = ffi_read_window(phase, cfg);
-    let outcome = self.call_run(handle, phase_name, readers, read_secs);
-    match outcome {
-      Ok(raw) => {
+    let readers = ffi_threads(phase);
+    let mut phase_results = Vec::with_capacity(phase_samples(phase, cfg));
+    let mut failure = None;
+    for _ in 0..phase_samples(phase, cfg) {
+      match self
+        .call_run(handle, phase_name, readers, 0.0)
+        .and_then(|raw| result_from_ffi(raw, phase_name))
+      {
+        Ok(result) => phase_results.push(result),
+        Err(err) => {
+          failure = Some(err);
+          break;
+        }
+      }
+    }
+    match failure {
+      None => {
         if phase == Phase::BulkLoad {
           *self
             .handle
@@ -919,9 +1073,9 @@ impl BenchEngine for CppFfiEngine {
             (self.lib.api.close)(handle);
           }
         }
-        result_from_ffi(raw, phase_name)
+        Ok(median_phase_result(phase_results))
       }
-      Err(err) => {
+      Some(err) => {
         unsafe {
           (self.lib.api.close)(handle);
         }
@@ -1181,7 +1335,12 @@ const FKV_REQUIRED_FLAGS: &[&str] = &[
   "batch-size",
   "write-batchs",
   "kv-size",
+  "key-size",
+  "buffer-pool-size",
   "read-per-part",
+  "read-count",
+  "scan-count",
+  "trials",
   "test-secs",
   "scan-bytes",
   "store-dir",
@@ -1275,13 +1434,13 @@ impl FkvEngine {
         let args = fkv_load_args(cfg, &store_dir, &history);
         let _ = self.exec(cfg, phase, "load", &args)?;
         let metrics = self.load_metrics(&history)?;
-        result_from_total(&metrics, "put_kv_s", "put_p99_us", cfg.rows as u64)
+        result_from_total(&metrics, "put_kv_s", "put_p99_us", cfg.bulk_rows as u64)
       }
       Phase::IndividualWrites => {
-        let args = fkv_write_args(cfg, &store_dir, &history, 1, cfg.rows);
+        let args = fkv_write_args(cfg, &store_dir, &history, 1, cfg.individual_writes as usize);
         let _ = self.exec(cfg, phase, "write", &args)?;
         let metrics = self.load_metrics(&history)?;
-        result_from_total(&metrics, "put_kv_s", "put_p99_us", cfg.rows as u64)
+        result_from_total(&metrics, "put_kv_s", "put_p99_us", cfg.individual_writes)
       }
       Phase::BatchWrites => {
         let batches = cfg.batch_count();
@@ -1294,34 +1453,44 @@ impl FkvEngine {
       Phase::RandomReads { readers } => {
         let load_history = self.history_path(cfg, phase, "load");
         remove_file_if_exists(&load_history)?;
-        let load = fkv_load_args(cfg, &store_dir, &load_history);
+        let load = fkv_prepare_args(cfg, &store_dir, &load_history);
         self.exec(cfg, phase, "load", &load)?;
         let read = fkv_read_args(cfg, &store_dir, &history, readers);
         self.exec(cfg, phase, "read", &read)?;
         let metrics = self.load_metrics(&history)?;
-        result_from_window(&metrics, "get_kv_s", "get_p99_us", cfg.read_secs)
+        if cfg.reads > 0 {
+          result_from_total(&metrics, "get_kv_s", "get_p99_us", cfg.reads)
+        } else {
+          result_from_window(&metrics, "get_kv_s", "get_p99_us", cfg.read_secs)
+        }
       }
       Phase::RangeReads => {
         let load_history = self.history_path(cfg, phase, "load");
         remove_file_if_exists(&load_history)?;
-        let load = fkv_load_args(cfg, &store_dir, &load_history);
+        let load = fkv_prepare_args(cfg, &store_dir, &load_history);
         self.exec(cfg, phase, "load", &load)?;
         let scan = fkv_scan_args(cfg, &store_dir, &history);
         self.exec(cfg, phase, "scan", &scan)?;
         let metrics = self.load_metrics(&history)?;
-        result_from_window(&metrics, "scan_kv_s", "scan_p99_us", cfg.read_secs)
+        if cfg.scans > 0 {
+          // One page request per range scan: `scan_page_s` is requests/s, the
+          // same physical unit the C++ shim reports.
+          result_from_total(&metrics, "scan_page_s", "scan_p99_us", cfg.scans)
+        } else {
+          result_from_window(&metrics, "scan_kv_s", "scan_p99_us", cfg.read_secs)
+        }
       }
       Phase::Removals => {
         let args = fkv_delete_args(cfg, &store_dir, &history);
         self.exec(cfg, phase, "delete", &args)?;
         let metrics = self.load_metrics(&history)?;
-        result_from_total(&metrics, "delete_kv_s", "delete_p99_us", cfg.rows as u64)
+        result_from_total(&metrics, "delete_kv_s", "delete_p99_us", cfg.removals)
       }
       Phase::Len => {
         // `len()` is a full-scan count: load once, then run one scan round.
         let load_history = self.history_path(cfg, phase, "load");
         remove_file_if_exists(&load_history)?;
-        let load = fkv_load_args(cfg, &store_dir, &load_history);
+        let load = fkv_prepare_args(cfg, &store_dir, &load_history);
         self.exec(cfg, phase, "load", &load)?;
         let len = fkv_len_args(cfg, &store_dir, &history);
         self.exec(cfg, phase, "len", &len)?;
@@ -1381,27 +1550,30 @@ impl BenchEngine for FkvEngine {
   }
 }
 
-fn fkv_base_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> Vec<String> {
-  fkv_base_args_with_test_secs(cfg, store_dir, history, cfg.read_secs)
+fn fkv_base_args(cfg: &MatrixConfig, rows: usize, store_dir: &Path, history: &Path) -> Vec<String> {
+  fkv_base_args_with_test_secs(cfg, rows, store_dir, history, cfg.read_secs)
 }
 
 fn fkv_base_args_with_test_secs(
   cfg: &MatrixConfig,
+  rows: usize,
   store_dir: &Path,
   history: &Path,
   test_secs: f64,
 ) -> Vec<String> {
-  vec![
+  let mut args = vec![
     "--impl".to_owned(),
     "rust".to_owned(),
     "--rows".to_owned(),
-    cfg.rows.to_string(),
+    rows.to_string(),
     "--max-key".to_owned(),
-    cfg.rows.to_string(),
+    rows.to_string(),
     "--partitions".to_owned(),
     "1".to_owned(),
     "--kv-size".to_owned(),
     cfg.kv_size.to_string(),
+    "--key-size".to_owned(),
+    cfg.key_size.to_string(),
     "--key-interval".to_owned(),
     "1".to_owned(),
     "--rng".to_owned(),
@@ -1416,11 +1588,30 @@ fn fkv_base_args_with_test_secs(
     store_dir.display().to_string(),
     "--history".to_owned(),
     history.display().to_string(),
-  ]
+  ];
+  if cfg.cache_bytes > 0 {
+    args.push("--buffer-pool-size".to_owned());
+    args.push(cfg.cache_bytes.to_string());
+  }
+  args
 }
 
 pub fn fkv_load_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> Vec<String> {
-  let mut args = fkv_base_args(cfg, store_dir, history);
+  let mut args = fkv_base_args(cfg, cfg.bulk_rows, store_dir, history);
+  args.extend([
+    "--batch-size".to_owned(),
+    cfg.batch_size.to_string(),
+    "--load-only".to_owned(),
+    "--workload".to_owned(),
+    "write-only".to_owned(),
+  ]);
+  args
+}
+
+/// Untimed dataset load used to prepare read / scan / len phases.
+/// Uses `--rows` (the 1M redb dataset), not `--bulk-rows`.
+pub fn fkv_prepare_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> Vec<String> {
+  let mut args = fkv_base_args(cfg, cfg.rows, store_dir, history);
   args.extend([
     "--batch-size".to_owned(),
     cfg.batch_size.to_string(),
@@ -1438,7 +1629,7 @@ pub fn fkv_write_args(
   batch_size: usize,
   batches: usize,
 ) -> Vec<String> {
-  let mut args = fkv_base_args(cfg, store_dir, history);
+  let mut args = fkv_base_args(cfg, cfg.rows, store_dir, history);
   args.extend([
     "--batch-size".to_owned(),
     batch_size.to_string(),
@@ -1456,10 +1647,17 @@ pub fn fkv_read_args(
   history: &Path,
   readers: usize,
 ) -> Vec<String> {
-  let mut args = fkv_base_args(cfg, store_dir, history);
+  // Fixed-count mode has no meaningful time window; `--read-count` alone
+  // drives the lane.  A zero read count keeps the legacy time window.
+  let test_secs = if cfg.reads > 0 { 0.0 } else { cfg.read_secs };
+  let mut args = fkv_base_args_with_test_secs(cfg, cfg.rows, store_dir, history, test_secs);
   args.extend([
     "--read-per-part".to_owned(),
     readers.to_string(),
+    "--read-count".to_owned(),
+    cfg.reads.to_string(),
+    "--trials".to_owned(),
+    cfg.samples.max(1).to_string(),
     "--read-only-existing".to_owned(),
     "--workload".to_owned(),
     "read-only".to_owned(),
@@ -1468,10 +1666,15 @@ pub fn fkv_read_args(
 }
 
 pub fn fkv_scan_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> Vec<String> {
-  let mut args = fkv_base_args(cfg, store_dir, history);
+  let test_secs = if cfg.scans > 0 { 0.0 } else { cfg.read_secs };
+  let mut args = fkv_base_args_with_test_secs(cfg, cfg.rows, store_dir, history, test_secs);
   args.extend([
     "--read-per-part".to_owned(),
     "1".to_owned(),
+    "--scan-count".to_owned(),
+    cfg.scans.to_string(),
+    "--trials".to_owned(),
+    cfg.samples.max(1).to_string(),
     "--read-only-existing".to_owned(),
     "--workload".to_owned(),
     "scan".to_owned(),
@@ -1486,10 +1689,12 @@ pub fn fkv_scan_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> Ve
 /// `fullscan_num` (live entries) and `fullscan_total_us` (round wall time).
 /// Everything else mirrors [`fkv_scan_args`]; only the time window differs.
 pub fn fkv_len_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> Vec<String> {
-  let mut args = fkv_base_args_with_test_secs(cfg, store_dir, history, 0.0);
+  let mut args = fkv_base_args_with_test_secs(cfg, cfg.rows, store_dir, history, 0.0);
   args.extend([
     "--read-per-part".to_owned(),
     "1".to_owned(),
+    "--trials".to_owned(),
+    cfg.samples.max(1).to_string(),
     "--read-only-existing".to_owned(),
     "--workload".to_owned(),
     "scan".to_owned(),
@@ -1498,10 +1703,13 @@ pub fn fkv_len_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> Vec
 }
 
 pub fn fkv_delete_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> Vec<String> {
-  let mut args = fkv_base_args(cfg, store_dir, history);
+  let mut args = fkv_base_args(cfg, cfg.rows, store_dir, history);
+  let batches = cfg.removals.div_ceil(cfg.batch_size.max(1) as u64);
   args.extend([
     "--batch-size".to_owned(),
     cfg.batch_size.to_string(),
+    "--write-batchs".to_owned(),
+    batches.to_string(),
     "--workload".to_owned(),
     "delete-only".to_owned(),
   ]);
@@ -1509,7 +1717,7 @@ pub fn fkv_delete_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> 
 }
 
 pub fn fkv_compact_args(cfg: &MatrixConfig, store_dir: &Path, history: &Path) -> Vec<String> {
-  let mut args = fkv_base_args(cfg, store_dir, history);
+  let mut args = fkv_base_args(cfg, cfg.bulk_rows, store_dir, history);
   args.extend([
     "--batch-size".to_owned(),
     cfg.batch_size.to_string(),
@@ -1563,12 +1771,24 @@ struct CompactionTiming {
 #[derive(Debug, Clone, Serialize)]
 struct ConfigSummary {
   workdir: String,
+  profile: String,
   rows: usize,
+  bulk_rows: usize,
   batch_size: usize,
   kv_size: usize,
+  key_size: usize,
+  value_size: usize,
+  cache_bytes: u64,
   read_secs: f64,
   readers: Vec<usize>,
   scan_bytes: u64,
+  individual_writes: u64,
+  batch_writes: u64,
+  reads: u64,
+  scans: u64,
+  scan_len: usize,
+  removals: u64,
+  samples: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1666,12 +1886,24 @@ fn run_matrix(
   Ok(MatrixReport {
     config: ConfigSummary {
       workdir: cfg.workdir.display().to_string(),
+      profile: cfg.profile.as_str().to_owned(),
       rows: cfg.rows,
+      bulk_rows: cfg.bulk_rows,
       batch_size: cfg.batch_size,
       kv_size: cfg.kv_size,
+      key_size: cfg.key_size,
+      value_size: cfg.value_size(),
+      cache_bytes: cfg.cache_bytes,
       read_secs: cfg.read_secs,
       readers: cfg.readers.clone(),
       scan_bytes: cfg.scan_bytes,
+      individual_writes: cfg.individual_writes,
+      batch_writes: cfg.batch_writes,
+      reads: cfg.reads,
+      scans: cfg.scans,
+      scan_len: cfg.scan_len,
+      removals: cfg.removals,
+      samples: cfg.samples,
     },
     phases,
     uncompacted_size: SizeRow {
@@ -1743,13 +1975,30 @@ impl MatrixReport {
     let _ = writeln!(out, "- workdir: `{}`", self.config.workdir);
     let _ = writeln!(
       out,
-      "- rows={} batch_size={} kv_size={} read_secs={} scan_bytes={} readers={:?}",
+      "- profile={} rows={} bulk_rows={} batch_size={} kv_size={} key_size={} value_size={} cache_bytes={} readers={:?}",
+      self.config.profile,
       self.config.rows,
+      self.config.bulk_rows,
       self.config.batch_size,
       self.config.kv_size,
-      self.config.read_secs,
-      self.config.scan_bytes,
+      self.config.key_size,
+      self.config.value_size,
+      self.config.cache_bytes,
       self.config.readers
+    );
+    let _ = writeln!(
+      out,
+      "- individual_writes={} batch_writes={}x{} reads={} scans={}x{} removals={} samples={} read_secs={} scan_bytes={}",
+      self.config.individual_writes,
+      self.config.batch_writes,
+      self.config.batch_size,
+      self.config.reads,
+      self.config.scans,
+      self.config.scan_len,
+      self.config.removals,
+      self.config.samples,
+      self.config.read_secs,
+      self.config.scan_bytes
     );
     out.push('\n');
     out.push_str("| phase | cpp | fkv | ratio |\n");
@@ -1815,6 +2064,65 @@ impl MatrixReport {
     if let Some(fkv) = self.compaction.fkv_secs {
       let _ = writeln!(out, "> fkv compact-only: {fkv:.3} s");
     }
+    out.push('\n');
+    out.push_str("## 口径\n\n");
+    let _ = writeln!(
+      out,
+      "- **redb 工作负载**：bulk load {bulk} 条；读 / scan / len 数据集 {rows} 条；\
+       individual writes {individual} 条；batch writes {batch_writes} × {batch_size}；\
+       random reads {reads} 次；range scans {scans} 次 × {scan_len} 条；removals {removals} 条；\
+       读 / scan / len 各重复 {samples} 次取中位数。",
+      bulk = self.config.bulk_rows,
+      rows = self.config.rows,
+      individual = self.config.individual_writes,
+      batch_writes = self.config.batch_writes,
+      batch_size = self.config.batch_size,
+      reads = self.config.reads,
+      scans = self.config.scans,
+      scan_len = self.config.scan_len,
+      removals = self.config.removals,
+      samples = self.config.samples,
+    );
+    let _ = writeln!(
+      out,
+      "- **KV 形状**：key {key} B，value {value} B（kv_size {kv}）；两侧 key 都是\
+       「末尾 8B 大端下标 + 前导零」的确定性编码，可复现且字典序与下标序一致。\
+       这不是 redb 的随机 24B key（redb 用 RNG_SEED=3 生成随机 key），B-tree 分裂形状会不同。",
+      key = self.config.key_size,
+      value = self.config.value_size,
+      kv = self.config.kv_size,
+    );
+    let _ = writeln!(
+      out,
+      "- **缓存预算**：两侧都设为 {cache} B（{cache_mib:.1} MiB，受控变量，低于 {rows} × {kv} B ≈ {data_mib:.1} MiB 的数据集）。\
+       C++ `buffer_pool_size` 是**每 shard 上限**、由 index + data page 共享（`enable_data_page_cache=true`）；\
+       本矩阵只有 partition 0，只有 shard 0 承载数据并真正使用这份缓存（其余空 shard 不产生页缓存），\
+       故工作集可用上限即 {cache_mib:.1} MiB。fkv 是单 store 总预算，对半拆成 index cache / page cache 各 {half_mib:.1} MiB。",
+      cache = self.config.cache_bytes,
+      cache_mib = self.config.cache_bytes as f64 / (1024.0 * 1024.0),
+      rows = self.config.rows,
+      kv = self.config.kv_size,
+      data_mib = (self.config.rows * self.config.kv_size) as f64 / (1024.0 * 1024.0),
+      half_mib = self.config.cache_bytes as f64 / (1024.0 * 1024.0) / 2.0,
+    );
+    out.push_str(
+      "- **C++ 线程数**：写阶段两侧都是单分区串行（`num_threads=1`）；\
+       点读阶段 C++ FFI 的 `num_threads` 与 `--readers` 一致，range scan / len 固定 1。\
+       注意 EloqStore 按 `partition_id % shard_num` 路由，本矩阵只有 partition 0，\
+       因此 `num_threads>1` 时仍然只有 shard 0 持有该分区，多线程体现为同一 shard 上的并发请求，\
+       不是多个数据分片并行；fkv 侧是每个读者一条独立异步读链。\n",
+    );
+    out.push_str(
+      "- **len() 语义**：redb 的 `len()` 是 O(1) 元数据读取；本表两侧都没有 O(1) 计数 API，\
+       C++ FFI 与 fkv 都做一次全量分页/全表扫描后计数，表中 len() 行是扫描速率，不是 O(1) 查找速率，\
+       不能与 redb README 的 len() 数值直接比较。\n",
+    );
+    if self.config.profile == "legacy" {
+      out.push_str(
+        "- **legacy 档**：保留旧的 200k 数据集与时间窗读 / scan（`read_secs`），\
+         不使用固定次数；C++ FFI 仍按其固定次数执行，故该档读 / scan 与 redb 档不可混比。\n",
+      );
+    }
     out
   }
 
@@ -1835,12 +2143,23 @@ struct Args {
   cpp_bin: Option<PathBuf>,
   rust_bin: Option<PathBuf>,
   workdir: Option<PathBuf>,
+  profile: Option<String>,
   rows: Option<usize>,
+  bulk_rows: Option<usize>,
   batch_size: Option<usize>,
   kv_size: Option<usize>,
+  key_size: Option<usize>,
+  cache_bytes: Option<u64>,
   read_secs: Option<f64>,
   readers: Option<Vec<usize>>,
   scan_bytes: Option<u64>,
+  individual_writes: Option<u64>,
+  batch_writes: Option<u64>,
+  reads: Option<u64>,
+  scans: Option<u64>,
+  scan_len: Option<usize>,
+  removals: Option<u64>,
+  samples: Option<usize>,
   markdown: Option<PathBuf>,
   json: Option<PathBuf>,
 }
@@ -1881,8 +2200,29 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
   while let Some(arg) = args.next() {
     match arg.as_str() {
       "-h" | "--help" => return Ok(ParsedArgs::Help),
-      "--cpp-lib" | "--cpp-bin" | "--rust-bin" | "--workdir" | "--rows" | "--batch-size"
-      | "--kv-size" | "--read-secs" | "--readers" | "--scan-bytes" | "--markdown" | "--json" => {
+      "--cpp-lib"
+      | "--cpp-bin"
+      | "--rust-bin"
+      | "--workdir"
+      | "--profile"
+      | "--rows"
+      | "--bulk-rows"
+      | "--batch-size"
+      | "--kv-size"
+      | "--key-size"
+      | "--cache-bytes"
+      | "--read-secs"
+      | "--readers"
+      | "--scan-bytes"
+      | "--individual-writes"
+      | "--batch-writes"
+      | "--reads"
+      | "--scans"
+      | "--scan-len"
+      | "--removals"
+      | "--samples"
+      | "--markdown"
+      | "--json" => {
         let value = args.next().ok_or_else(|| format!("{arg} 缺少参数值"))?;
         match arg.as_str() {
           "--cpp-lib" => {
@@ -1901,9 +2241,17 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
             ensure_unset(&parsed.workdir, &arg)?;
             parsed.workdir = Some(PathBuf::from(value));
           }
+          "--profile" => {
+            ensure_unset(&parsed.profile, &arg)?;
+            parsed.profile = Some(value);
+          }
           "--rows" => {
             ensure_unset(&parsed.rows, &arg)?;
             parsed.rows = Some(parse_usize(&arg, &value)?);
+          }
+          "--bulk-rows" => {
+            ensure_unset(&parsed.bulk_rows, &arg)?;
+            parsed.bulk_rows = Some(parse_usize(&arg, &value)?);
           }
           "--batch-size" => {
             ensure_unset(&parsed.batch_size, &arg)?;
@@ -1912,6 +2260,14 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
           "--kv-size" => {
             ensure_unset(&parsed.kv_size, &arg)?;
             parsed.kv_size = Some(parse_usize(&arg, &value)?);
+          }
+          "--key-size" => {
+            ensure_unset(&parsed.key_size, &arg)?;
+            parsed.key_size = Some(parse_usize(&arg, &value)?);
+          }
+          "--cache-bytes" => {
+            ensure_unset(&parsed.cache_bytes, &arg)?;
+            parsed.cache_bytes = Some(parse_u64(&arg, &value)?);
           }
           "--read-secs" => {
             ensure_unset(&parsed.read_secs, &arg)?;
@@ -1927,11 +2283,35 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
           }
           "--scan-bytes" => {
             ensure_unset(&parsed.scan_bytes, &arg)?;
-            parsed.scan_bytes = Some(
-              value
-                .parse::<u64>()
-                .map_err(|_| format!("{arg} 不是整数: {value}"))?,
-            );
+            parsed.scan_bytes = Some(parse_u64(&arg, &value)?);
+          }
+          "--individual-writes" => {
+            ensure_unset(&parsed.individual_writes, &arg)?;
+            parsed.individual_writes = Some(parse_u64(&arg, &value)?);
+          }
+          "--batch-writes" => {
+            ensure_unset(&parsed.batch_writes, &arg)?;
+            parsed.batch_writes = Some(parse_u64(&arg, &value)?);
+          }
+          "--reads" => {
+            ensure_unset(&parsed.reads, &arg)?;
+            parsed.reads = Some(parse_u64(&arg, &value)?);
+          }
+          "--scans" => {
+            ensure_unset(&parsed.scans, &arg)?;
+            parsed.scans = Some(parse_u64(&arg, &value)?);
+          }
+          "--scan-len" => {
+            ensure_unset(&parsed.scan_len, &arg)?;
+            parsed.scan_len = Some(parse_usize(&arg, &value)?);
+          }
+          "--removals" => {
+            ensure_unset(&parsed.removals, &arg)?;
+            parsed.removals = Some(parse_u64(&arg, &value)?);
+          }
+          "--samples" => {
+            ensure_unset(&parsed.samples, &arg)?;
+            parsed.samples = Some(parse_usize(&arg, &value)?);
           }
           "--markdown" => {
             ensure_unset(&parsed.markdown, &arg)?;
@@ -1964,6 +2344,12 @@ fn parse_usize(arg: &str, value: &str) -> Result<usize, String> {
     .map_err(|_| format!("{arg} 不是整数: {value}"))
 }
 
+fn parse_u64(arg: &str, value: &str) -> Result<u64, String> {
+  value
+    .parse::<u64>()
+    .map_err(|_| format!("{arg} 不是整数: {value}"))
+}
+
 fn parse_readers(value: &str) -> Result<Vec<usize>, String> {
   let readers = value
     .split(',')
@@ -1985,30 +2371,92 @@ fn parse_readers(value: &str) -> Result<Vec<usize>, String> {
 }
 
 fn resolve_config(args: Args) -> Result<(CppBackend, PathBuf, MatrixConfig), String> {
+  const MIB: u64 = 1024 * 1024;
   let cpp_backend = args.cpp_backend()?;
   let rust_bin = args.rust_bin.ok_or_else(|| "缺少 --rust-bin".to_owned())?;
-  let rows = args.rows.unwrap_or(1_000_000);
+  let profile = match args.profile.as_deref() {
+    Some(value) => Profile::parse(value)?,
+    None => Profile::Redb,
+  };
+  let legacy = profile == Profile::Legacy;
+  let rows = args
+    .rows
+    .unwrap_or(if legacy { 200_000 } else { 1_000_000 });
   let batch_size = args.batch_size.unwrap_or(1000);
-  let kv_size = args.kv_size.unwrap_or(128);
-  let read_secs = args.read_secs.unwrap_or(10.0);
-  let readers = args.readers.unwrap_or_else(|| vec![1, 2, 4, 8]);
+  let kv_size = args.kv_size.unwrap_or(if legacy { 128 } else { 174 });
+  let key_size = args.key_size.unwrap_or(if legacy { 8 } else { 24 });
+  let cache_bytes = args
+    .cache_bytes
+    .unwrap_or(if legacy { 0 } else { 64 * MIB });
+  let read_secs = args.read_secs.unwrap_or(if legacy { 5.0 } else { 0.0 });
+  let readers = args.readers.unwrap_or_else(|| vec![1, 4, 8, 16, 32]);
   let workdir = args.workdir.unwrap_or_else(|| PathBuf::from("/tmp/matrix"));
-  let scan_bytes = args.scan_bytes.unwrap_or(0);
+  let bulk_rows = args
+    .bulk_rows
+    .unwrap_or(if legacy { rows } else { 5_000_000 });
+  let individual_writes =
+    args
+      .individual_writes
+      .unwrap_or(if legacy { rows as u64 } else { 1_000 });
+  let batch_writes = args.batch_writes.unwrap_or(if legacy {
+    rows.div_ceil(batch_size) as u64
+  } else {
+    100
+  });
+  let reads = args.reads.unwrap_or(if legacy { 0 } else { 1_000_000 });
+  let scans = args.scans.unwrap_or(if legacy { 0 } else { 500_000 });
+  let scan_len = args.scan_len.unwrap_or(if legacy { 0 } else { 10 });
+  let removals = args
+    .removals
+    .unwrap_or(if legacy { rows as u64 } else { 500_000 });
+  let samples = args.samples.unwrap_or(if legacy { 1 } else { 3 });
+  let value_size = kv_size.saturating_sub(key_size);
+  let scan_bytes = args.scan_bytes.unwrap_or(if legacy {
+    0
+  } else {
+    (scan_len * value_size) as u64
+  });
 
   if rows == 0 {
     return Err("--rows 必须大于 0".to_owned());
   }
+  if bulk_rows == 0 {
+    return Err("--bulk-rows 必须大于 0".to_owned());
+  }
   if batch_size == 0 {
     return Err("--batch-size 必须大于 0".to_owned());
   }
-  if kv_size <= 8 {
-    return Err("--kv-size 必须大于 8（8B key + value）".to_owned());
+  if key_size < 8 {
+    return Err("--key-size 必须 >= 8（key 末尾是 8B 大端下标记）".to_owned());
   }
-  if !(read_secs.is_finite() && read_secs >= 1.0) {
-    return Err("--read-secs 必须 >= 1（C++ scan 每秒才输出一次窗口指标）".to_owned());
+  if kv_size <= key_size {
+    return Err("--kv-size 必须大于 --key-size（key + value）".to_owned());
   }
-  if rows > u32::MAX as usize {
-    return Err("--rows 超过 u32::MAX，两个 bench 的计数参数都无法表达".to_owned());
+  if samples == 0 {
+    return Err("--samples 必须大于 0".to_owned());
+  }
+  if (reads == 0 || scans == 0) && !(read_secs.is_finite() && read_secs >= 1.0) {
+    return Err(
+      "--read-secs 必须 >= 1（时间窗档用；redb 档请给 --reads / --scans 固定次数）".to_owned(),
+    );
+  }
+  for (name, value) in [("--rows", rows), ("--bulk-rows", bulk_rows)] {
+    if value > u32::MAX as usize {
+      return Err(format!(
+        "{name} 超过 u32::MAX，两个 bench 的计数参数都无法表达"
+      ));
+    }
+  }
+  for (name, value) in [
+    ("--individual-writes", individual_writes),
+    ("--batch-writes", batch_writes),
+    ("--reads", reads),
+    ("--scans", scans),
+    ("--removals", removals),
+  ] {
+    if value > u32::MAX as u64 {
+      return Err(format!("{name} 超过 u32::MAX，C++ FFI 无法表达"));
+    }
   }
 
   Ok((
@@ -2016,12 +2464,23 @@ fn resolve_config(args: Args) -> Result<(CppBackend, PathBuf, MatrixConfig), Str
     rust_bin,
     MatrixConfig {
       workdir,
+      profile,
       rows,
+      bulk_rows,
       batch_size,
       kv_size,
+      key_size,
+      cache_bytes,
       read_secs,
       readers,
       scan_bytes,
+      individual_writes,
+      batch_writes,
+      reads,
+      scans,
+      scan_len,
+      removals,
+      samples,
     },
   ))
 }
@@ -2102,19 +2561,30 @@ enum CliError {
 
 #[cfg(test)]
 mod tests {
-  use std::{fs, time::SystemTime};
+  use std::{fs, mem, time::SystemTime};
 
   use super::*;
 
   fn cfg() -> MatrixConfig {
     MatrixConfig {
       workdir: PathBuf::from("/tmp/matrix-test"),
+      profile: Profile::Legacy,
       rows: 1000,
+      bulk_rows: 1000,
       batch_size: 100,
       kv_size: 128,
+      key_size: 8,
+      cache_bytes: 0,
       read_secs: 10.0,
       readers: vec![1, 2, 4],
       scan_bytes: 0,
+      individual_writes: 1000,
+      batch_writes: 10,
+      reads: 0,
+      scans: 0,
+      scan_len: 0,
+      removals: 1000,
+      samples: 1,
     }
   }
 
@@ -2227,6 +2697,72 @@ mod tests {
       pair(&compact, "--workload").as_deref(),
       Some("compact-only")
     );
+  }
+
+  #[test]
+  fn redb_commands_carry_the_aligned_counts() {
+    let mut cfg = cfg();
+    cfg.profile = Profile::Redb;
+    cfg.rows = 1_000_000;
+    cfg.bulk_rows = 5_000_000;
+    cfg.batch_size = 1000;
+    cfg.kv_size = 174;
+    cfg.key_size = 24;
+    cfg.cache_bytes = 64 * 1024 * 1024;
+    cfg.individual_writes = 1000;
+    cfg.batch_writes = 100;
+    cfg.reads = 1_000_000;
+    cfg.scans = 500_000;
+    cfg.scan_len = 10;
+    cfg.scan_bytes = 1500;
+    cfg.removals = 500_000;
+    cfg.samples = 3;
+    let store = Path::new("/tmp/store");
+    let history = Path::new("/tmp/h.json");
+
+    let load = fkv_load_args(&cfg, store, history);
+    assert_eq!(pair(&load, "--rows").as_deref(), Some("5000000"));
+    assert_eq!(pair(&load, "--key-size").as_deref(), Some("24"));
+    assert_eq!(pair(&load, "--kv-size").as_deref(), Some("174"));
+    assert_eq!(
+      pair(&load, "--buffer-pool-size").as_deref(),
+      Some("67108864")
+    );
+    assert!(has(&load, "--load-only"));
+
+    // Read / scan / len prepare the 1M dataset, not the 5M bulk-load set.
+    let prepare = fkv_prepare_args(&cfg, store, history);
+    assert_eq!(pair(&prepare, "--rows").as_deref(), Some("1000000"));
+    assert_eq!(pair(&prepare, "--key-size").as_deref(), Some("24"));
+    assert!(has(&prepare, "--load-only"));
+
+    let individual = fkv_write_args(&cfg, store, history, 1, 1000);
+    assert_eq!(pair(&individual, "--rows").as_deref(), Some("1000000"));
+    assert_eq!(pair(&individual, "--batch-size").as_deref(), Some("1"));
+    assert_eq!(pair(&individual, "--write-batchs").as_deref(), Some("1000"));
+
+    let batch = fkv_write_args(&cfg, store, history, 1000, 100);
+    assert_eq!(pair(&batch, "--batch-size").as_deref(), Some("1000"));
+    assert_eq!(pair(&batch, "--write-batchs").as_deref(), Some("100"));
+
+    let read = fkv_read_args(&cfg, store, history, 8);
+    assert_eq!(pair(&read, "--read-count").as_deref(), Some("1000000"));
+    assert_eq!(pair(&read, "--trials").as_deref(), Some("3"));
+    assert_eq!(pair(&read, "--test-secs").as_deref(), Some("0"));
+    assert_eq!(pair(&read, "--read-per-part").as_deref(), Some("8"));
+
+    let scan = fkv_scan_args(&cfg, store, history);
+    assert_eq!(pair(&scan, "--scan-count").as_deref(), Some("500000"));
+    assert_eq!(pair(&scan, "--trials").as_deref(), Some("3"));
+    assert_eq!(pair(&scan, "--test-secs").as_deref(), Some("0"));
+    assert_eq!(pair(&scan, "--scan-bytes").as_deref(), Some("1500"));
+
+    let delete = fkv_delete_args(&cfg, store, history);
+    assert_eq!(pair(&delete, "--batch-size").as_deref(), Some("1000"));
+    assert_eq!(pair(&delete, "--write-batchs").as_deref(), Some("500"));
+
+    let len = fkv_len_args(&cfg, store, history);
+    assert_eq!(pair(&len, "--trials").as_deref(), Some("3"));
   }
 
   #[test]
@@ -2395,11 +2931,14 @@ mod tests {
   }
 
   #[test]
-  fn batch_count_rounds_up() {
+  fn batch_count_follows_the_explicit_batch_writes() {
     let mut cfg = cfg();
-    cfg.rows = 1001;
-    cfg.batch_size = 100;
+    cfg.batch_writes = 11;
     assert_eq!(cfg.batch_count(), 11);
+    // The redb profile sets 100 batches explicitly, independent of rows.
+    cfg.rows = 1_000_000;
+    cfg.batch_writes = 100;
+    assert_eq!(cfg.batch_count(), 100);
   }
 
   #[test]
@@ -2471,7 +3010,57 @@ mod tests {
       CppBackend::Ffi(PathBuf::from("/tmp/libfkv_bench_ffi.dylib"))
     );
     assert_eq!(rust_bin, PathBuf::from("/tmp/fkv_bench"));
-    assert_eq!(cfg.readers, vec![1, 2, 4, 8]);
+    // Default profile is redb, whose README table uses 1/4/8/16/32 threads.
+    assert_eq!(cfg.readers, vec![1, 4, 8, 16, 32]);
+    assert_eq!(cfg.profile, Profile::Redb);
+    assert_eq!(cfg.rows, 1_000_000);
+    assert_eq!(cfg.bulk_rows, 5_000_000);
+    assert_eq!(cfg.kv_size, 174);
+    assert_eq!(cfg.key_size, 24);
+    assert_eq!(cfg.cache_bytes, 64 * 1024 * 1024);
+    assert_eq!(cfg.individual_writes, 1_000);
+    assert_eq!(cfg.batch_writes, 100);
+    assert_eq!(cfg.reads, 1_000_000);
+    assert_eq!(cfg.scans, 500_000);
+    assert_eq!(cfg.scan_len, 10);
+    assert_eq!(cfg.removals, 500_000);
+    assert_eq!(cfg.samples, 3);
+    // redb: 10 entries per scan request, expressed as bytes for fkv_bench.
+    assert_eq!(cfg.scan_bytes, 10 * 150);
+  }
+
+  #[test]
+  fn legacy_profile_keeps_the_old_shape() {
+    let ParsedArgs::Run(args) = parse_args(
+      [
+        "--profile",
+        "legacy",
+        "--cpp-lib",
+        "libfkv_bench_ffi.so",
+        "--rust-bin",
+        "fkv_bench",
+      ]
+      .into_iter()
+      .map(str::to_owned),
+    )
+    .expect("parse") else {
+      panic!("expected Run");
+    };
+    let (_, _, cfg) = resolve_config(args).expect("config");
+    assert_eq!(cfg.profile, Profile::Legacy);
+    assert_eq!(cfg.rows, 200_000);
+    assert_eq!(cfg.bulk_rows, 200_000);
+    assert_eq!(cfg.kv_size, 128);
+    assert_eq!(cfg.key_size, 8);
+    assert_eq!(cfg.cache_bytes, 0);
+    assert_eq!(cfg.read_secs, 5.0);
+    assert_eq!(cfg.reads, 0);
+    assert_eq!(cfg.scans, 0);
+    assert_eq!(cfg.samples, 1);
+    assert_eq!(cfg.individual_writes, 200_000);
+    assert_eq!(cfg.batch_writes, 200);
+    assert_eq!(cfg.removals, 200_000);
+    assert_eq!(cfg.scan_bytes, 0);
   }
 
   #[test]
@@ -2489,15 +3078,74 @@ mod tests {
   }
 
   #[test]
-  fn ffi_read_window_only_passes_time_for_read_phases() {
-    let cfg = cfg();
-    assert_eq!(
-      ffi_read_window(Phase::RandomReads { readers: 4 }, &cfg),
-      (4, 10.0)
-    );
-    assert_eq!(ffi_read_window(Phase::RangeReads, &cfg), (1, 10.0));
-    assert_eq!(ffi_read_window(Phase::BulkLoad, &cfg), (1, 0.0));
-    assert_eq!(ffi_read_window(Phase::Len, &cfg), (1, 0.0));
+  fn ffi_config_carries_counts_threads_and_cache() {
+    let mut cfg = cfg();
+    cfg.profile = Profile::Redb;
+    cfg.rows = 1_000_000;
+    cfg.bulk_rows = 5_000_000;
+    cfg.batch_size = 1000;
+    cfg.kv_size = 174;
+    cfg.key_size = 24;
+    cfg.cache_bytes = 64 * 1024 * 1024;
+    cfg.individual_writes = 1_000;
+    cfg.batch_writes = 100;
+    cfg.reads = 1_000_000;
+    cfg.scans = 500_000;
+    cfg.scan_len = 10;
+    cfg.removals = 500_000;
+
+    let read = ffi_config(Phase::RandomReads { readers: 8 }, &cfg);
+    assert_eq!(read.rows, 1_000_000);
+    assert_eq!(read.bulk_rows, 5_000_000);
+    assert_eq!(read.key_size, 24);
+    assert_eq!(read.kv_size, 174);
+    assert_eq!(read.buffer_pool_size, 64 * 1024 * 1024);
+    assert_eq!(read.num_threads, 8);
+    assert_eq!(read.reads, 1_000_000);
+    assert_eq!(read.range_scans, 500_000);
+    assert_eq!(read.range_len, 10);
+    assert_eq!(read.removals, 500_000);
+
+    // Writes / scans / len stay single-threaded; only point reads fan out.
+    assert_eq!(ffi_threads(Phase::BulkLoad), 1);
+    assert_eq!(ffi_threads(Phase::IndividualWrites), 1);
+    assert_eq!(ffi_threads(Phase::BatchWrites), 1);
+    assert_eq!(ffi_threads(Phase::RangeReads), 1);
+    assert_eq!(ffi_threads(Phase::Removals), 1);
+    assert_eq!(ffi_threads(Phase::Len), 1);
+
+    // Only the read / scan / len lanes are repeated.
+    assert_eq!(cfg.samples, 1);
+    cfg.samples = 3;
+    assert_eq!(phase_samples(Phase::BulkLoad, &cfg), 1);
+    assert_eq!(phase_samples(Phase::RandomReads { readers: 1 }, &cfg), 3);
+    assert_eq!(phase_samples(Phase::RangeReads, &cfg), 3);
+    assert_eq!(phase_samples(Phase::Len, &cfg), 3);
+  }
+
+  #[test]
+  fn ffi_config_layout_matches_the_c_header() {
+    // FkvBenchConfig: 7 x u32, u64 (8-byte aligned), 6 x u32 = 64 bytes.
+    assert_eq!(mem::size_of::<FfiConfig>(), 64);
+    assert_eq!(mem::align_of::<FfiConfig>(), 8);
+    assert_eq!(FFI_ABI_VERSION, 2);
+  }
+
+  #[test]
+  fn median_picks_the_middle_throughput() {
+    let result = |ops: u64, secs: f64| PhaseResult {
+      ops,
+      duration: Duration::from_secs_f64(secs),
+      throughput: ops as f64 / secs,
+      p99_us: None,
+      bytes: None,
+    };
+    let median = median_phase_result(vec![
+      result(1000, 1.0),
+      result(1000, 2.0),
+      result(1000, 0.5),
+    ]);
+    assert!((median.throughput - 1000.0).abs() < 1e-9);
   }
 
   #[test]

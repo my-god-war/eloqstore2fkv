@@ -34,9 +34,18 @@ struct FkvBenchFfi
 {
     std::string root;
     uint32_t rows{0};
+    uint32_t bulk_rows{0};
     uint32_t batch_size{0};
     uint32_t kv_size{0};
     uint32_t partitions{0};
+    uint32_t key_size{0};
+    uint32_t num_threads{1};
+    uint32_t individual_writes{0};
+    uint32_t batch_writes{0};
+    uint32_t removals{0};
+    uint32_t reads{0};
+    uint32_t range_scans{0};
+    uint32_t range_len{0};
     uint64_t last_timestamp{0};
     std::string value;
     eloqstore::TableIdent table{"bm", 0};
@@ -56,8 +65,8 @@ namespace
 using Clock = std::chrono::steady_clock;
 
 constexpr char kTableName[] = "bm";
-constexpr size_t kKeySize = sizeof(uint64_t);
-constexpr size_t kRangeScanEntries = 10;
+/// Key 编码尾部固定 8 字节大端 uint64；`key_size` 之前的字节补零。
+constexpr size_t kKeyIndexBytes = sizeof(uint64_t);
 constexpr size_t kScanPageEntries = 256;
 
 // open()/run(NULL, ...) failures have no handle to attach the message to.
@@ -81,19 +90,21 @@ uint64_t WallMicros()
             .count());
 }
 
-void EncodeKey(char *dst, uint64_t value)
+void EncodeKey(char *dst, size_t key_size, uint64_t value)
 {
-    for (int i = static_cast<int>(kKeySize) - 1; i >= 0; --i)
+    const size_t offset = key_size - kKeyIndexBytes;
+    for (int i = static_cast<int>(kKeyIndexBytes) - 1; i >= 0; --i)
     {
-        dst[i] = static_cast<char>(value & 0xff);
+        dst[offset + static_cast<size_t>(i)] =
+            static_cast<char>(value & 0xff);
         value >>= 8;
     }
 }
 
-std::string KeyOf(uint64_t value)
+std::string KeyOf(const FkvBenchFfi *h, uint64_t value)
 {
-    std::string key(kKeySize, '\0');
-    EncodeKey(key.data(), value);
+    std::string key(h->key_size, '\0');
+    EncodeKey(key.data(), key.size(), value);
     return key;
 }
 
@@ -128,7 +139,7 @@ std::vector<eloqstore::WriteDataEntry> MakeEntries(
     for (uint64_t i = 0; i < count; ++i)
     {
         entries.emplace_back(
-            KeyOf(first_key + i), h->value, timestamp, op);
+            KeyOf(h, first_key + i), h->value, timestamp, op);
     }
     return entries;
 }
@@ -148,13 +159,14 @@ bool ExecBatch(FkvBenchFfi *h,
     return true;
 }
 
-bool BulkLoad(FkvBenchFfi *h, double *secs)
+/// Upsert `keys` entries in batches.  `secs` (optional) receives the wall time.
+bool BulkLoad(FkvBenchFfi *h, uint64_t keys, double *secs)
 {
     const auto start = Clock::now();
-    for (uint64_t offset = 0; offset < h->rows; offset += h->batch_size)
+    for (uint64_t offset = 0; offset < keys; offset += h->batch_size)
     {
         const uint64_t count =
-            std::min<uint64_t>(h->batch_size, h->rows - offset);
+            std::min<uint64_t>(h->batch_size, keys - offset);
         if (!ExecBatch(h,
                        MakeEntries(h,
                                    offset,
@@ -181,7 +193,7 @@ bool EnsureLoaded(FkvBenchFfi *h)
     {
         return true;
     }
-    return BulkLoad(h, nullptr);
+    return BulkLoad(h, h->rows, nullptr);
 }
 
 // Nearest-rank percentile: rank = ceil(p * n), 1-based; 0 for an empty sample.
@@ -203,11 +215,12 @@ double Percentile(std::vector<double> &latencies, double p)
 int RunBulkLoad(FkvBenchFfi *h, FkvBenchResult *out)
 {
     double secs = 0.0;
-    if (!BulkLoad(h, &secs))
+    const uint64_t keys = h->bulk_rows > 0 ? h->bulk_rows : h->rows;
+    if (!BulkLoad(h, keys, &secs))
     {
         return -1;
     }
-    out->ops = h->rows;
+    out->ops = keys;
     out->secs = secs;
     out->p99_us = 0.0;
     return 0;
@@ -215,9 +228,14 @@ int RunBulkLoad(FkvBenchFfi *h, FkvBenchResult *out)
 
 int RunIndividualWrites(FkvBenchFfi *h, FkvBenchResult *out)
 {
+    const uint64_t writes =
+        h->individual_writes > 0 ? h->individual_writes : h->rows;
     const auto start = Clock::now();
-    for (uint64_t key = 0; key < h->rows; ++key)
+    // Keys wrap over the dataset universe, matching `fkv_bench`'s
+    // `--write-batchs` overwrite semantics.
+    for (uint64_t i = 0; i < writes; ++i)
     {
+        const uint64_t key = i % h->rows;
         if (!ExecBatch(h,
                        MakeEntries(h,
                                    key,
@@ -230,7 +248,7 @@ int RunIndividualWrites(FkvBenchFfi *h, FkvBenchResult *out)
         }
     }
     h->loaded = true;
-    out->ops = h->rows;
+    out->ops = writes;
     out->secs = ElapsedSecs(start);
     out->p99_us = 0.0;
     return 0;
@@ -238,13 +256,16 @@ int RunIndividualWrites(FkvBenchFfi *h, FkvBenchResult *out)
 
 int RunBatchWrites(FkvBenchFfi *h, FkvBenchResult *out)
 {
-    const uint64_t batches = h->rows / h->batch_size;
+    const uint64_t batches =
+        h->batch_writes > 0 ? h->batch_writes : h->rows / h->batch_size;
     const auto start = Clock::now();
     for (uint64_t batch = 0; batch < batches; ++batch)
     {
+        const uint64_t first =
+            (batch * h->batch_size) % static_cast<uint64_t>(h->rows);
         if (!ExecBatch(h,
                        MakeEntries(h,
-                                   batch * h->batch_size,
+                                   first,
                                    h->batch_size,
                                    eloqstore::WriteOp::Upsert,
                                    h->NextTimestamp()),
@@ -255,7 +276,7 @@ int RunBatchWrites(FkvBenchFfi *h, FkvBenchResult *out)
     }
     // A floor batch count leaves a remainder unloaded.  Only claim the handle
     // is fully loaded when the phase actually covered every key.
-    if (batches * h->batch_size == h->rows)
+    if (h->batch_writes == 0 && batches * h->batch_size == h->rows)
     {
         h->loaded = true;
     }
@@ -284,11 +305,13 @@ int RunRandomReads(FkvBenchFfi *h, uint32_t readers, FkvBenchResult *out)
         return -1;
     }
 
-    // More reader threads than keys would only create idle threads.
+    // redb shape: a fixed total read count shared across the reader threads.
+    const uint64_t total_reads = h->reads > 0 ? h->reads : h->rows;
+    // More reader threads than reads would only create idle threads.
     const size_t thread_count =
-        std::min<size_t>(readers, static_cast<size_t>(h->rows));
-    const uint64_t base = h->rows / thread_count;
-    const uint64_t remainder = h->rows % thread_count;
+        std::min<size_t>(readers, static_cast<size_t>(total_reads));
+    const uint64_t base = total_reads / thread_count;
+    const uint64_t remainder = total_reads % thread_count;
 
     std::vector<ReadThreadState> states(thread_count);
     const auto start = Clock::now();
@@ -312,7 +335,7 @@ int RunRandomReads(FkvBenchFfi *h, uint32_t readers, FkvBenchResult *out)
                             eloqstore::ReadRequest request;
                             request.SetArgs(
                                 h->table,
-                                KeyOf(rng() % static_cast<uint64_t>(h->rows)));
+                                KeyOf(h, rng() % static_cast<uint64_t>(h->rows)));
                             const auto read_start = Clock::now();
                             h->store->ExecSync(&request);
                             const double usecs =
@@ -362,7 +385,7 @@ int RunRandomReads(FkvBenchFfi *h, uint32_t readers, FkvBenchResult *out)
     const double secs = ElapsedSecs(start);
 
     std::vector<double> latencies;
-    latencies.reserve(static_cast<size_t>(h->rows));
+    latencies.reserve(static_cast<size_t>(total_reads));
     uint64_t completed = 0;
     for (size_t i = 0; i < states.size(); ++i)
     {
@@ -390,20 +413,30 @@ int RunRangeReads(FkvBenchFfi *h, FkvBenchResult *out)
         return -1;
     }
 
-    const uint64_t scans = std::max<uint64_t>(1000, h->rows / 2);
+    const uint64_t scans = h->range_scans > 0
+                               ? h->range_scans
+                               : std::max<uint64_t>(1000, h->rows / 2);
+    const uint64_t scan_len = h->range_len > 0 ? h->range_len : 10;
     std::vector<double> latencies;
     latencies.reserve(static_cast<size_t>(scans));
     std::mt19937_64 rng(0xd1b54a32d192ed03ULL);
 
     const auto start = Clock::now();
+    // fkv 的 scan_range 把起点限制在 [0, rows - scan_len)，保证每次窗口
+    // 都是完整 scan_len 条；这里同口径，避免尾部短窗口拉低平均条数。
+    const uint64_t max_start =
+        static_cast<uint64_t>(h->rows) > scan_len
+            ? static_cast<uint64_t>(h->rows) - scan_len
+            : 1;
     for (uint64_t i = 0; i < scans; ++i)
     {
-        const uint64_t begin = rng() % static_cast<uint64_t>(h->rows);
-        const uint64_t end = begin + kRangeScanEntries;
+        const uint64_t begin = rng() % max_start;
+        const uint64_t end = begin + scan_len;
         eloqstore::ScanRequest request;
         request.SetPagination(kScanPageEntries, 0);
         request.SetArgs(
-            h->table, KeyOf(begin), KeyOf(end), /*begin_inclusive=*/true,
+            h->table, KeyOf(h, begin), KeyOf(h, end),
+            /*begin_inclusive=*/true,
             /*end_inclusive=*/false);
         const auto scan_start = Clock::now();
         h->store->ExecSync(&request);
@@ -431,11 +464,12 @@ int RunRemovals(FkvBenchFfi *h, FkvBenchResult *out)
         return -1;
     }
 
+    const uint64_t removals = h->removals > 0 ? h->removals : h->rows;
     const auto start = Clock::now();
-    for (uint64_t offset = 0; offset < h->rows; offset += h->batch_size)
+    for (uint64_t offset = 0; offset < removals; offset += h->batch_size)
     {
         const uint64_t count =
-            std::min<uint64_t>(h->batch_size, h->rows - offset);
+            std::min<uint64_t>(h->batch_size, removals - offset);
         if (!ExecBatch(h,
                        MakeEntries(h,
                                    offset,
@@ -449,7 +483,7 @@ int RunRemovals(FkvBenchFfi *h, FkvBenchResult *out)
     }
     h->loaded = false;
 
-    out->ops = h->rows;
+    out->ops = removals;
     out->secs = ElapsedSecs(start);
     out->p99_us = 0.0;
     return 0;
@@ -545,11 +579,13 @@ uint64_t FkvBenchFfi::NextTimestamp()
     return ts;
 }
 
-extern "C" FKV_BENCH_FFI_API FkvBenchFfi *fkv_bench_open(const char *root,
-                                                         uint32_t rows,
-                                                         uint32_t batch_size,
-                                                         uint32_t kv_size,
-                                                         uint32_t partitions)
+extern "C" FKV_BENCH_FFI_API uint32_t fkv_bench_abi_version(void)
+{
+    return FKV_BENCH_ABI_VERSION;
+}
+
+extern "C" FKV_BENCH_FFI_API FkvBenchFfi *fkv_bench_open(
+    const char *root, const FkvBenchConfig *config)
 {
     tls_open_error.clear();
     if (root == nullptr || root[0] == '\0')
@@ -557,9 +593,27 @@ extern "C" FKV_BENCH_FFI_API FkvBenchFfi *fkv_bench_open(const char *root,
         tls_open_error = "fkv_bench_open: root must be a non-empty path";
         return nullptr;
     }
+    if (config == nullptr)
+    {
+        tls_open_error = "fkv_bench_open: config must not be null";
+        return nullptr;
+    }
+    const uint32_t rows = config->rows;
+    const uint32_t bulk_rows =
+        config->bulk_rows > 0 ? config->bulk_rows : config->rows;
+    const uint32_t batch_size = config->batch_size;
+    const uint32_t kv_size = config->kv_size;
+    const uint32_t partitions = config->partitions;
+    const uint32_t key_size = config->key_size;
     if (rows == 0)
     {
         tls_open_error = "fkv_bench_open: rows must be greater than zero";
+        return nullptr;
+    }
+    if (bulk_rows == 0)
+    {
+        tls_open_error =
+            "fkv_bench_open: bulk_rows must be greater than zero";
         return nullptr;
     }
     if (batch_size == 0)
@@ -568,10 +622,16 @@ extern "C" FKV_BENCH_FFI_API FkvBenchFfi *fkv_bench_open(const char *root,
             "fkv_bench_open: batch_size must be greater than zero";
         return nullptr;
     }
-    if (kv_size <= kKeySize)
+    if (key_size < kKeyIndexBytes)
     {
         tls_open_error =
-            "fkv_bench_open: kv_size must be greater than the 8-byte key";
+            "fkv_bench_open: key_size must be at least 8 bytes";
+        return nullptr;
+    }
+    if (kv_size <= key_size)
+    {
+        tls_open_error =
+            "fkv_bench_open: kv_size must be greater than key_size";
         return nullptr;
     }
     if (partitions == 0)
@@ -585,13 +645,33 @@ extern "C" FKV_BENCH_FFI_API FkvBenchFfi *fkv_bench_open(const char *root,
         auto handle = std::make_unique<FkvBenchFfi>();
         handle->root = root;
         handle->rows = rows;
+        handle->bulk_rows = bulk_rows;
         handle->batch_size = batch_size;
         handle->kv_size = kv_size;
         handle->partitions = partitions;
-        handle->value.assign(kv_size - kKeySize, 'v');
+        handle->key_size = key_size;
+        handle->num_threads =
+            config->num_threads > 0 ? config->num_threads : 1;
+        handle->individual_writes = config->individual_writes;
+        handle->batch_writes = config->batch_writes;
+        handle->removals = config->removals;
+        handle->reads = config->reads;
+        handle->range_scans = config->range_scans;
+        handle->range_len = config->range_len;
+        handle->value.assign(kv_size - key_size, 'v');
 
         eloqstore::KvOptions options;
         options.store_path = {handle->root};
+        // shard / worker 数：写阶段矩阵固定传 1，读 / scan 阶段传读者数。
+        options.num_threads = static_cast<uint16_t>(
+            std::min<uint32_t>(handle->num_threads, 65535));
+        if (config->buffer_pool_size > 0)
+        {
+            options.buffer_pool_size = config->buffer_pool_size;
+        }
+        // 与 fkv 的 data page cache 对齐：C++ 默认只缓存 index 页，
+        // 开启后 data / index 共享 buffer_pool_size。
+        options.enable_data_page_cache = true;
         handle->store = std::make_unique<eloqstore::EloqStore>(options);
         const eloqstore::KvError err = handle->store->Start("main", 0);
         if (err != eloqstore::KvError::NoError)
