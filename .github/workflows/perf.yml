@@ -201,9 +201,11 @@ jobs:
         if: always()
         with:
           name: perf-matrix-${{ github.run_id }}
+          # 阶段日志也上传：矩阵失败/超时时不必再靠重跑来定位卡在哪一步。
           path: |
             ${{ runner.temp }}/fkv-matrix.md
             ${{ runner.temp }}/fkv-matrix.json
+            ${{ runner.temp }}/fkv-matrix/*/logs/**
           if-no-files-found: warn
 
   perf-baseline:
