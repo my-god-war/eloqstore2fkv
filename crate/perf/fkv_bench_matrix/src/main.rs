@@ -856,11 +856,14 @@ fn ffi_phase_name(phase: Phase) -> &'static str {
   }
 }
 
-/// Shard / worker threads for a phase.  Writes stay single-threaded (one
-/// partition, serial stream on both engines); point reads use the matrix's
-/// reader count, range scans / len stay single-threaded (redb's scan lane is
-/// single-threaded).
-fn ffi_threads(phase: Phase) -> u32 {
+/// 点读阶段的客户端读线程数（作为 FFI `run(readers)` 的实参）。
+///
+/// 不要把它和 EloqStore 的 `num_threads` 混用：后者是 **shard / worker 线程数**。
+/// 本矩阵只有 partition 0，按 `partition_id % shard_num` 恒路由到 shard 0；把
+/// `num_threads` 设成 readers（最多 32）等于为单分区起 32 个 shard，每个都要
+/// io_uring 环与注册内存，实测在 2 vCPU runner 上 io_uring 初始化返回 -12
+/// (ENOMEM)、整个 store 起不来（run 42385622423 的 32 线程阶段）。
+fn ffi_readers(phase: Phase) -> u32 {
   match phase {
     Phase::RandomReads { readers } => readers.min(u32::MAX as usize) as u32,
     _ => 1,
@@ -876,7 +879,7 @@ fn ffi_config(phase: Phase, cfg: &MatrixConfig) -> FfiConfig {
     kv_size: cfg.kv_size as u32,
     partitions: 1,
     key_size: cfg.key_size as u32,
-    num_threads: ffi_threads(phase),
+    num_threads: 1,
     buffer_pool_size: cfg.cache_bytes,
     individual_writes: cfg.individual_writes as u32,
     batch_writes: cfg.batch_writes as u32,
@@ -1045,7 +1048,7 @@ impl BenchEngine for CppFfiEngine {
     set_last_store(&self.last_root, &root)?;
 
     let phase_name = ffi_phase_name(phase);
-    let readers = ffi_threads(phase);
+    let readers = ffi_readers(phase);
     let mut phase_results = Vec::with_capacity(phase_samples(phase, cfg));
     let mut failure = None;
     for _ in 0..phase_samples(phase, cfg) {
@@ -2106,11 +2109,12 @@ impl MatrixReport {
       half_mib = self.config.cache_bytes as f64 / (1024.0 * 1024.0) / 2.0,
     );
     out.push_str(
-      "- **C++ 线程数**：写阶段两侧都是单分区串行（`num_threads=1`）；\
-       点读阶段 C++ FFI 的 `num_threads` 与 `--readers` 一致，range scan / len 固定 1。\
-       注意 EloqStore 按 `partition_id % shard_num` 路由，本矩阵只有 partition 0，\
-       因此 `num_threads>1` 时仍然只有 shard 0 持有该分区，多线程体现为同一 shard 上的并发请求，\
-       不是多个数据分片并行；fkv 侧是每个读者一条独立异步读链。\n",
+      "- **C++ 并发口径**：`num_threads` 是 EloqStore 的 shard / worker 线程数，\
+       本矩阵只有 partition 0（`partition_id % shard_num` 恒路由到 shard 0），因此两侧固定\
+       `num_threads=1`；点读的并发由客户端读线程数 `--readers` 提供（C++ 侧 N 个线程向同一\
+       shard 并发提交，fkv 侧 N 条独立异步读链），range scan / len 固定 1。\
+       曾把 `num_threads` 设成 readers，结果单分区起 32 个 shard、io_uring 初始化 ENOMEM，\
+       已回退；这也说明此前 C++ 单分区读吞吐 ~19.5 kops/s 是该配置下的真实上限，不是框架偏差。\n",
     );
     out.push_str(
       "- **len() 语义**：redb 的 `len()` 是 O(1) 元数据读取；本表两侧都没有 O(1) 计数 API，\
@@ -3100,19 +3104,19 @@ mod tests {
     assert_eq!(read.key_size, 24);
     assert_eq!(read.kv_size, 174);
     assert_eq!(read.buffer_pool_size, 64 * 1024 * 1024);
-    assert_eq!(read.num_threads, 8);
+    assert_eq!(read.num_threads, 1);
     assert_eq!(read.reads, 1_000_000);
     assert_eq!(read.range_scans, 500_000);
     assert_eq!(read.range_len, 10);
     assert_eq!(read.removals, 500_000);
 
     // Writes / scans / len stay single-threaded; only point reads fan out.
-    assert_eq!(ffi_threads(Phase::BulkLoad), 1);
-    assert_eq!(ffi_threads(Phase::IndividualWrites), 1);
-    assert_eq!(ffi_threads(Phase::BatchWrites), 1);
-    assert_eq!(ffi_threads(Phase::RangeReads), 1);
-    assert_eq!(ffi_threads(Phase::Removals), 1);
-    assert_eq!(ffi_threads(Phase::Len), 1);
+    assert_eq!(ffi_readers(Phase::BulkLoad), 1);
+    assert_eq!(ffi_readers(Phase::IndividualWrites), 1);
+    assert_eq!(ffi_readers(Phase::BatchWrites), 1);
+    assert_eq!(ffi_readers(Phase::RangeReads), 1);
+    assert_eq!(ffi_readers(Phase::Removals), 1);
+    assert_eq!(ffi_readers(Phase::Len), 1);
 
     // Only the read / scan / len lanes are repeated.
     assert_eq!(cfg.samples, 1);
