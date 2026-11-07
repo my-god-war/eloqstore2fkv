@@ -201,7 +201,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   返回 `NotFound` 属预期，不得判为 fkv 错误；同输入下保留集合也与 C++ 死代码
   不同（C++ 按文件计数且 `std::sort` 非稳定、同 tag 保留哪份不确定，不作为
   对齐目标）。行为锁定测试 `fkv_store/tests/archive_retention.rs`，判定记录见
-  issue/reviewed/sem-02-archive-retention-prune.md。
+  （已完成记录已清理）。
 - `DeleteBranch` 的归档删除面（C++ Local / Cloud 自身不一致）：C++ Local
   `IouringMgr::DeleteBranchFiles`（`src/async_io_manager.cpp:3053-3140`）从
   `CURRENT_TERM_<branch>_<shard>` 读 `max_term`，只删
@@ -221,7 +221,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   删 data 对象 vs Local / fkv 留给 GC 属最终一致差异，不构成正确性差异。行为
   锁定测试：`fkv_store/src/archive/mod.rs` 的
   `delete_branch_removes_branch_archives`，判定记录见
-  issue/reviewed/sem-27-delete-branch-archive-divergence.md。
+  （已完成记录已清理）。
 - branch file id 预留：Rust `create_branch` 为每个新 branch 预留一个 1024 file id
   块（`BRANCH_FILE_RESERVE_FILE_NUM`），C++ `CreateBranch` 不预留。块基址全局单调：
   取「所有 manifest（含 main 活跃 manifest）已承诺块上界」与「父分支高水位 / 下一次
@@ -247,7 +247,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   输入校验。差分口径：该输入不得以 C++ `NoError` 为对齐目标，也不得用其建分支
   后的盘面做比较；合法新 branch 名不受影响。行为锁定测试
   `fkv_store/src/archive/mod.rs` 的 `create_branch_rejects_main_and_active`，判定记录见
-  issue/reviewed/sem-29-create-branch-main-active-divergence.md。
+  （已完成记录已清理）。
 - 归档重开的追加水位：`reopen_archive` 只回滚可见状态（mapping / root），data
   侧 Append 与 segment（大 value，恒 Append）追加水位都保留在活跃状态已写完的
   位置之后（pooled-11 / pooled-12）。归档 manifest 的 `max_fp_id` /
@@ -333,7 +333,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   清理 record 的分批边界与 C++ 单轮全量扫描不同；该差异只影响清理批的切分，
   不改变可见值集合。行为锁定测试：`fkv_btree` / `fkv_store` 的 TTL 写路径
   过期丢弃用例（merge 丢弃、页字节、overflow/段释放、ttl_read_filter=false
-  写后不可见）。判定记录见 issue/reviewed/sem-50-write-path-expired-entry-retention.md。
+  写后不可见）。判定记录见 （已完成记录已清理）。
 - 点位读输出契约（请求层有意差异，sem-34）：C++ `ReadRequest` 的默认形态是
   metadata-only——`large_value_dest_` 为 `std::monostate` 时
   `Read(..., extract_metadata=true)` 不读 segment，large entry 的 `value_` 只
@@ -433,7 +433,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `crate/engine/fkv_runtime/tests/standby.rs` 的
   `replica_catches_up_segment_files_and_serves_get_large`（master 写大 value →
   replica 追赶后本地存在 `segment_*` 且 `get_large` 成功）。判定记录见
-  issue/reviewed/sem-61-standby-rsync-segment-include.md（与本仓既有
+  （已完成记录已清理）（与本仓既有
   sem-61-compact-file-order-and-record-split 仅编号撞车，非同一条）。
 - 以下 C++ 性能/资源旋钮在 Rust 侧解析但不生效（`KvOption::validate` 对非默认值
   告警）：`enable_data_page_cache`、`init_page_count`、`coroutine_stack_size`、
@@ -470,7 +470,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   行为锁定测试 `fkv_runtime/tests/archive_crond.rs` 的
   `archive_crond_uses_global_tick` 与 `fkv_runtime/src/archive.rs` 的
   `shutdown_bounded_while_archive_in_flight`，判定记录见
-  issue/reviewed/rt-01-archive-crond-global-tick.md。
+  （已完成记录已清理）。
 - 云 manifest 采纳语义（branch 过滤 / ExpiredTerm 栅栏 / promote）：C++ 基线
   `CloudStoreMgr::GetManifest`（`src/async_io_manager.cpp:4607-4730`）在
   `(active_branch, process_term)` 未命中后列举 `manifest_` 前缀回退：跳过带 tag
@@ -522,7 +522,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `install_external_snapshot_selects_latest_term`（无栅栏路径），以及
   `fkv_shard/src/lifecycle.rs` 单测
   `expired_term_marks_shard_expired_and_fast_fails`。判定记录见
-  issue/reviewed/sem-04-cloud-manifest-adoption-fence.md。
+  （已完成记录已清理）。
 - Cloud branch 活跃 manifest 对象名（attach term 命名 + 回退采纳 + 剪枝，
   sem-60）：C++ attach 后 branch 的全部读写换到
   `(GetActiveBranch(), ProcessTerm())` 名下——`CreateBranch` 落
@@ -562,8 +562,8 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `manifest_B_T` 与冷启动回退链 / `_0` 采纳 + 写时晋升种子 / 剪枝 / Local 恒
   `_0` / `ExpiredTerm` 栅栏 / drop 不复活 / branch drop 遇列举失败零删除 +
   evict 后重试清扫）。判定记录见
-  issue/reviewed/sem-60-cloud-branch-manifest-name-term.md 与
-  issue/reviewed/sem-63-drop-table-branch-list-fail-skips-evict.md。
+  （已完成记录已清理） 与
+  （已完成记录已清理）。
 - 证据：format 层 7 类 22 个 case 已有真实双向语料——C++ 写 → Rust 读
   （`fixtures/cpp`）与 Rust 写 → C++ 读（`fixtures/rust`）；CI `fixture-diff`
   按 baseline 重新生成并 `git diff --exit-code fixtures/cpp` 检查漂移。
@@ -863,7 +863,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   的 `low_watermark_manifest_is_raised_and_pages_are_not_reused` /
   `well_formed_manifest_watermark_is_unchanged`（两分配模式矩阵 + 映射物理页
   唯一性断言）。判定记录见
-  issue/reviewed/l2-05-term-bump-and-reopen-max-fp-id.md。
+  （已完成记录已清理）。
 - legacy 空 `file_range_li` 的 term bump 合成区间（pooled-14 / io-28）：
   pre-range-chain 遗留 manifest（`file_ranges` 为空、mapping / 水位非空）在
   attach term 与 manifest term 不一致（bump）时，fkv `install_replay_state`
@@ -900,9 +900,9 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   0/1/1022 读取）；
   `fkv_store/tests/get_mapper_parity.rs` 的注释口径同步为「空链是
   pre-range-chain 遗留形状，不是 C++ Local 的首个 main manifest」。判定记录见
-  issue/reviewed/pooled-14-legacy-empty-range-term-floor.md、
-  issue/reviewed/io-28-pooled14-segment-bump-limit-guard.md、
-  issue/reviewed/io-29-io28-segment-guard-drops-old-term-files.md。
+  （已完成记录已清理）、
+  （已完成记录已清理）、
+  （已完成记录已清理）。
 - mapping 空闲链尾哨兵与释放页 log 增量（sem-42 + sem-45，**已对齐**）：释放逻辑页时
   fkv 现与 C++ 写同一编码。空闲链尾经 `encode_free_next`
   （`fkv_mapping/src/mapper.rs`）写 `INVALID_VALUE(7)`，`allocate_page` 经
@@ -920,10 +920,10 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   段的槽值编码**现在逐字节等价（释放项 `7`、分配 / remap 项 `FilePageId`）。
   **data mapping 段的释放顺序**也已对齐：多页 overflow 链按 C++
   `DelOverflowValue` 的前向顺序释放（sem-47，`free_overflow_chain` 前向游标，
-  `issue/reviewed/sem-47-overflow-chain-free-order-reversed.md`）；同页多 key
+  `（已完成记录已清理）`）；同页多 key
   覆盖按 C++ `ApplyOnePage` 逐 key 相位（释放该 key 旧值 → 立即写该 key 新
   overflow 链 → 回填指针）执行（sem-48，`rewrite_page_values`，
-  `issue/reviewed/sem-48-same-page-multikey-free-alloc-phase.md`），log 顺序、
+  `（已完成记录已清理）`），log 顺序、
   空闲链与复用归属同 C++。行为锁定测试：`fkv_store/tests/overflow_free_order.rs`
   （struct-33 拆分）的
   `overflow_chain_free_order_matches_cpp_del_overflow_value` /
@@ -933,9 +933,9 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   **页分裂的写出顺序**也已对齐（sem-49）：既有 data 页分裂时先 remap 原页、
   再 allocate 分裂页（`fkv_store/tests/shift_leaf_link.rs` 的
   `split_existing_data_page_writes_original_before_split_pages`，
-  `issue/reviewed/sem-49-split-page-mapping-log-order.md`）。同批「分裂 + 后继页
+  `（已完成记录已清理）`）。同批「分裂 + 后继页
   改写 / 删除」的相位也已对齐：同一逻辑页一批内最多 remap 一次（sem-51，
-  `issue/reviewed/sem-51-split-successor-double-remap.md`），前驱修复与分裂尾页
+  `（已完成记录已清理）`），前驱修复与分裂尾页
   的 `UpdateMapping` 延迟到删除页 `DeleteMapping` 之后、批末统一写出（sem-52/53，
   mapper 的 `reserve_page` / `commit_reserved_page`），记录顺序同 C++
   `ShiftLeafLink`。行为锁定测试：`fkv_store/tests/shift_leaf_link.rs`
@@ -966,8 +966,8 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `fkv_store/tests/get_mapper_parity.rs` 的
   `legacy_free_chain_tail_reopens_with_cpp_sentinel`、store 级
   `free→alloc→free→alloc` 序列与混合批用例。判定记录见
-  issue/reviewed/sem-42-mapping-free-list-sentinel-encoding.md 与
-  issue/reviewed/sem-45-free-realloc-log-delta-final-value.md。
+  （已完成记录已清理） 与
+  （已完成记录已清理）。
 - 整表 truncate 的 segment 映射（sem-43，**有意差异**）：C++ 82b774c
   `BatchWriteTask::Truncate`（`batch_write_task.cpp:1845-1890`）整表分支只遍历
   data mapping 逐页 `FreePage`，全函数不引用 `segment_mapper_`；随后
@@ -990,7 +990,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   sem-42 已对齐。行为锁定测试：`fkv_store/tests/large_value.rs` 的
   `truncate_frees_segment_mapping_and_gc_reclaims_files` /
   `reopen_cpp_style_truncate_manifest_keeps_segment_mapping`。判定记录见
-  issue/reviewed/sem-43-truncate-full-segment-mapping.md。
+  （已完成记录已清理）。
 - 覆盖大 value 时 segment 逻辑页的分配 / 释放顺序（sem-46，**有意差异**）：
   C++ `BatchWriteTask::ApplyBatch` 在旧值覆盖胜出时先 `DelLargeValue`
   （`batch_write_task.cpp:576-579,1665-1681`）再 `WriteLargeValue`
@@ -1006,7 +1006,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   由各自 manifest 引用决定，双方互读安全。行为锁定测试：
   `fkv_store/tests/large_value.rs` 的
   `put_large_overwrite_allocs_before_frees_segment_slots`。判定记录见
-  issue/reviewed/sem-46-put-large-segment-reuse-order.md。
+  （已完成记录已清理）。
 - large 批的落段门槛（sem-62，**输入契约差异**，与「单批重复 key」条同型）：
   C++ 引擎对 large entry 没有大小门槛——落段与否完全由宿主构造 `WriteDataEntry`
   决定（`include/types.h` 的 `large_val_` 非 `std::monostate` 即
@@ -1035,7 +1035,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `put_large_routes_subthreshold_values_to_data_pages`（小 value 经 `Store::get`
   从数据页读回、manifest segment 段只含大 value 槽、恰等于阈值的 value 落段
   锁定 `>=` 语义；put_large 改为批内全落段时立红）。判定记录见
-  issue/reviewed/sem-62-put-large-subthreshold-inline.md。
+  （已完成记录已清理）。
 - Compact 公开请求形态（sem-64，**公开请求面差异**）：C++ `CompactRequest`
   无字段（`include/eloq_store.h:783-791`），经公开 `ExecAsyn` / `ExecSync`
   提交后分派 `task->Compact()`（`src/storage/shard.cpp:1180-1193`，受
@@ -1052,7 +1052,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `fkv_shard/tests/lifecycle.rs` 的
   `compact_request_moves_only_named_file_and_defers_gc`（单文件搬迁、无 GC、
   他文件不动、显式 FileGc 只回收指定文件；改为 maintain 全表语义时立红）。
-  判定记录见 issue/reviewed/sem-64-compact-request-shape-public-surface.md。
+  判定记录见 （已完成记录已清理）。
 - truncate 的 manifest 冲刷形态（sem-58）：三个面。
   - 空分区整表 truncate（**已对齐**）：C++ `BatchWriteTask::Truncate` 在
     trunc_pos 分派之前对空树无条件早退（`cow_meta_.root_id_ == MaxPageId`，
@@ -1086,7 +1086,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   差分口径：Form A 对齐后「空分区 truncate」两侧均零 manifest 写，可对拍；
   「越界 position truncate」「大表范围 truncate」按 l2-03 sem-58 行跳过——
   同一 oplog 的 manifest record 数 / 字节与物理页分配高水位不作等价目标。
-  判定记录见 issue/reviewed/sem-58-truncate-manifest-shape-empty-and-no-match.md。
+  判定记录见 （已完成记录已清理）。
 - compact 轮次的 manifest 记录流形态（sem-61）：两个面。
   - 搬迁文件顺序（**已对齐**）：C++ `DoCompactDataFile` /
     `DoCompactSegmentFile` 都是
@@ -1122,7 +1122,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
     构造乱序盘面的手推期望 mapping）与
     `fkv_store/tests/compact_page_order_within_file.rs`（真实 oplog 的 overflow
     删 / 写构造同文件乱序，delta 旧 fp 严格递增 + 新 fp = base+i）。判定记录见
-    issue/reviewed/sem-60-compaction-move-order.md。
+    （已完成记录已清理）。
   - record 边界（**有意差异**）：C++ `BackgroundWrite::Compact()` =
     `DoCompactDataFile` + `DoCompactSegmentFile` + **一次**
     `UpdateMeta(/*trigger_compact=*/false)`
@@ -1146,7 +1146,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
     切分同款口径。差分口径：双侧同超阈值的 compact 轮次，manifest record
     边界 / record 数与单条 record 内的段归属不作对拍目标；搬迁顺序面已对齐，
     record 内 data delta 的 page_id 顺序与新 `FilePageId` 发号可对拍。
-  判定记录见 issue/reviewed/sem-61-compact-file-order-and-record-split.md。
+  判定记录见 （已完成记录已清理）。
 - single-flight owner 取消的传播语义（l2-12）：C++ 的页级读盘与等待者名单都挂在
   页对象上——`WaitingZone waiting_` 是 `MemCachedPage` 的成员
   （`cpp/eloqstore/include/storage/mem_cached_page.h:223`），首访任务在

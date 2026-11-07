@@ -104,10 +104,10 @@ GC/archive/replay 的协作让出、`retain_mapped` 等价 swizzle 复用、fixe
    `ProcessTerm()` 取值口径，再改 `fkv_recovery`/`manifest` 的抬升逻辑；
    **l2-05 已结案**：`ProcessTerm()` = 运行任务 shard term，Local 被强制 0 ⇒
    C++ 判据与 fkv 等价，差异改为登记（Local term 口径 l2-05a + 两处 Rust 单侧加固
-   l2-05a/l2-05b），不改代码；见 `issue/reviewed/l2-05-term-bump-and-reopen-max-fp-id.md`；
+   l2-05a/l2-05b），不改代码；见 `（已完成记录已清理）`；
 6. **F5 + F6**（`MappingTbl::resize` 回填、`manifest_limit=0`）——manifest 逐字节等价的最后两块；
    **l2-06 已完成**：F6 对齐 C++（恒 snapshot）并加测试锁定，F5 判定保留 Rust 回填 +
-   回写 `COMPAT_BASELINE` 跳表 core-29（见 `issue/reviewed/l2-06-mapping-resize-backfill-and-manifest-limit-zero.md`）；
+   回写 `COMPAT_BASELINE` 跳表 core-29（见 `（已完成记录已清理）`）；
 7. **F1 + F7**（zstd 版本 pin + 字典抽样）——仅在要求**压缩盘面逐字节等价**时才做，
    否则登记为「压缩体不保证逐字节等价」；
    **l2-07 已结案并登记**：Rust 侧 `mzstd =0.2.11` / `zstd =0.14.3` / `zstd-sys =2.1.2`
