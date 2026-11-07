@@ -1,0 +1,1 @@
+var e={README:[`Ännere Logbuch`,`Projet Update Log a Leeschtung an Kompatibilitéit änneren Entrée`,`2026-11-06`],"2026-11-06-homepage-and-metrics":[`2026-11-06: Haaptsäit Leeschtung Dësch, Indikator Expansioun a Säiten`,`Homepage Performance Verglach, Evaluatiounsindikator Expansioun, GitHub Säiten a Multi-Language Blogs online`,`2026-11-06`]};export{e as default};

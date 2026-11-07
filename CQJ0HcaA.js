@@ -1,0 +1,1 @@
+var e={README:[`Newid log`,`Log diweddaru'r prosiect a chofnod newid perfformiad a chydnawsedd`,`2026-11-06`],"2026-11-06-homepage-and-metrics":[`2026-11-06: Tabl perfformiad tudalen gartref, ehangu dangosyddion a Tudalennau`,`Cymhariaeth perfformiad tudalen gartref, ehangu dangosyddion gwerthuso, GitHub Pages a blogiau aml-iaith ar-lein`,`2026-11-06`]};export{e as default};

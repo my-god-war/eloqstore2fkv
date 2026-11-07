@@ -1,0 +1,1 @@
+var e={README:[`Change log`,`Project update log and performance and compatibility change entry`,`2026-11-06`],"2026-11-06-homepage-and-metrics":[`2026-11-06: Home page performance table, indicator expansion and Pages`,`Home page performance comparison, evaluation indicator expansion, GitHub Pages and multi-language blogs online`,`2026-11-06`]};export{e as default};

@@ -1,0 +1,1 @@
+var e={README:[`Ngganti log`,`Log nganyari proyek lan entri pangowahan kinerja lan kompatibilitas`,`2026-11-06`],"2026-11-06-homepage-and-metrics":[`2026-11-06: Tabel kinerja kaca ngarep, ekspansi indikator lan Kaca`,`Perbandingan kinerja kaca ngarep, ekspansi indikator evaluasi, Kaca GitHub lan blog multi-basa online`,`2026-11-06`]};export{e as default};

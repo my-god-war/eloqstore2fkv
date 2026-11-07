@@ -1,0 +1,1 @@
+var e={README:[`Změnit protokol`,`Protokol aktualizací projektu a záznam změn výkonu a kompatibility`,`2026-11-06`],"2026-11-06-homepage-and-metrics":[`2026-11-06: Tabulka výkonu domovské stránky, rozšíření indikátoru a stránky`,`Porovnání výkonu domovské stránky, rozšíření ukazatelů hodnocení, stránky GitHub a vícejazyčné online blogy`,`2026-11-06`]};export{e as default};
