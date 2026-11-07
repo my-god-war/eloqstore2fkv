@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/iw/README.md) : צור והצג שכבה קופצת עם כפתור סגירה
+[Code](../../src/webc/Code/i18n/iw/README.md) : כפתור קוד
+[Copy](../../src/webc/Copy/i18n/iw/README.md) : העתק טקסט ללוח
+[Edit](../../src/webc/Edit/i18n/iw/README.md) : כפתור עריכה
+[I18n](../../src/webc/I18n/i18n/iw/README.md) : לחצנים וחלונות קופצים להחלפת שפות ממשק
+[Nav](../../src/webc/Nav/i18n/iw/README.md) : סרגל הניווט העליון שמתכווץ או מתרחב באופן אוטומטי כאשר הדף גולש
+[NavL](../../src/webc/NavL/i18n/iw/README.md) : החלף אוטומטית את תפריט הניווט וכפתור החזרה
+[NavMenu](../../src/webc/NavMenu/i18n/iw/README.md) : תפריט ניווט מותאם לגדלי מסך שונים
+[Side](../../src/webc/Side/i18n/iw/README.md) : לוחות מגירות המחליקים החוצה מהצד
+[Toc](../../src/webc/Toc/i18n/iw/README.md) : רכיב ניווט בספריות
+[Btn](../../src/webc/Btn/i18n/iw/README.md) : כפתור רגיל וכפתור אייקון עגול
+[Card](../../src/webc/Card/i18n/iw/README.md) : כרטיס קפסולה עם חץ ימינה מוצג בהשעיה
+[H1Txt](../../src/webc/H1Txt/i18n/iw/README.md) : כותרת ותיאור מרקם
+[Ing](../../src/webc/Ing/i18n/iw/README.md) : מחוון של מצב טעינה או עיבוד
+[Lg](../../src/webc/Lg/i18n/iw/README.md) : רקע זכוכית חלבית ואפקט הדגשת קצה
+[MdCss](../../src/webc/MdCss/i18n/iw/README.md) : סגנונות טיפוגרפיה מותאמים לחוויית קריאה
+[NavALi](../../src/webc/NavALi/i18n/iw/README.md) : סגנון רשימת קישורים בסרגל הניווט
+[O](../../src/webc/O/i18n/iw/README.md) : צייר לוגו נקודה חלולה מול האלמנט
+[Toast](../../src/webc/Toast/i18n/iw/README.md) : חלון מוקפץ בקשה בקצה העמוד
+[Back](../../src/webc/Back/i18n/iw/README.md) : כפתור חזרה
+[Box](../../src/webc/Box/i18n/iw/README.md) : צור והצג שכבת קופץ
+[Md](../../src/webc/Md/i18n/iw/README.md) : ניתוח ועיבוד בטוח של טקסט Markdown ל-HTML.
+[Pophover](../../src/webc/Pophover/i18n/iw/README.md) : הודעת בועה צפה
+[Scroll](../../src/webc/Scroll/i18n/iw/README.md) : פס גלילה וירטואלי
+[eloqstore2fkv](../iw/doc/README.md)
+[תהליך אימות](../iw/doc/workflow.md)
+[C++ oracle](../iw/doc/oracle.md)
+[העבר ספר חשבונות](../iw/doc/ledger.md)
+[ביצועים](../iw/doc/performance.md)
+[עיין ברשומות](../iw/doc/issues.md)
+[יומן שינוי](../iw/blog/README.md) : יומן עדכון פרויקט והזנת שינוי ביצועים ותאימות
+[2026-11-06: טבלת ביצועי דף הבית, הרחבת אינדיקטורים ודפים](../iw/blog/2026-11-06-homepage-and-metrics.md) : השוואת ביצועי דף הבית, הרחבת אינדיקטור הערכה, דפי GitHub ובלוגים מרובים שפות באינטרנט

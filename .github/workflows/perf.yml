@@ -1,0 +1,312 @@
+name: perf
+
+# V6 性能门槛。默认在 4 KiB 页的 Linux runner 上跑 fkv_bench，与
+# `perf-baseline` release 里的同 runner Rust/C++ 基线比较。
+#
+# - 缺 `perf-baseline` 资产：脚本 exit 78（skipped-with-error），作业变红；
+#   只有显式 PERF_GATE_REQUIRE_BASELINE=0 才允许降级（本 workflow 固定为 1）。
+# - 非 4 KiB 页 / 非 Linux：同样 exit 78，不产生绿色结论。盘型不限。
+# - `publish_baseline=true` 的手动运行会跑 C++ simple_bench + Rust fkv_bench，
+#   产出 `perf-baseline.json` 并覆盖上传到 `PERF_BASELINE_REPO`（本仓
+#   `github.repository`；gate 也从同一仓库读取）的 `perf-baseline` release；
+#   发布步骤见 doc/perf-baseline.md。
+#
+# 构建 / 运行统一走共享脚本，别在这里复制命令：
+#   scripts/ci/build_cpp_bench.sh   幂等 fetch pinned eloqstore + cmake Release
+#   scripts/ci/build_rust_bench.sh  从兄弟仓构建 fkv_bench（本地用）
+#   scripts/perf_local.sh           固定 workload 跑两侧 + perf_gate.sh produce
+#
+# 门槛二进制从被审查的 fkv SHA 构建（checkout fkv + build_rust_bench.sh），
+# 不再下载滚动 perf-latest；`fkv_commit` 为空时用 fkv 默认分支 HEAD，并把
+# 实际 SHA 写回 FKV_COMMIT，gate 会断言 bench 与之一致。
+#
+# 硬件只要求 Linux + 4 KiB 页 + PERF_NVME_ROOT 存在。普通 SSD、网络盘、
+# 虚拟盘、容器 overlay 都可以跑 gate / matrix / baseline，数字按同 runner
+# 趋势读；脚本层不再因盘型阻断。
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner_label:
+        description: "runner 标签（留空 = vars.PERF_RUNNER_LABEL，未设置则 ubuntu-latest；必须与基线产出时相同）"
+        required: false
+        default: ""
+      runner_id:
+        description: "perf-baseline runner 标识（留空 = vars.PERF_RUNNER_ID，未设置则 github-ubuntu-latest-x86_64；gate 会断言基线 runner 与之相等）"
+        required: false
+        default: ""
+      fkv_commit:
+        description: "被审查的 fkv commit（空 = fkv 默认分支 HEAD；也可用 vars.FKV_COMMIT）"
+        required: false
+        type: string
+      publish_baseline:
+        description: "跑 C++/Rust 并发布 perf-baseline 资产"
+        required: false
+        type: boolean
+        default: false
+      run_matrix:
+        description: "跑 redb 风格阶段矩阵（C++ FFI + Rust fkv；bulk load / individual / batch / reads / removals / compact）"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  FKV_REPO: webc-site/fkv
+  # workflow_dispatch 的 fkv_commit 优先，其次仓库变量；空值会在 checkout
+  # 后回填为 fkv 默认分支的实际 HEAD。
+  FKV_COMMIT: ${{ github.event.inputs.fkv_commit || vars.FKV_COMMIT || '' }}
+  FKV_REPO_PATH: ${{ github.workspace }}/fkv
+  # fkv_bench 当前固定口径：KvOption::default() 的 data_append_mode=false
+  #（PooledFilePages）+ CompioStore::with_direct_io(true)。fkv 默认变化时
+  # 同步更新这里并重建 perf-baseline。
+  PERF_DATA_APPEND_MODE: "0"
+  PERF_DIRECT_IO: "1"
+  # 与 perf-baseline 产出时一致；自定义 runner 用仓库变量覆盖。
+  PERF_RUNNER_ID: ${{ github.event.inputs.runner_id || vars.PERF_RUNNER_ID || 'github-ubuntu-latest-x86_64' }}
+
+jobs:
+  perf-gate:
+    name: perf-gate (same-runner V6)
+    # publish_baseline 只负责产出基线，不拿旧基线做门槛比较。
+    # 硬件检查已放宽：任意 4 KiB Linux 盘（含网络盘 / 虚拟盘）都可以跑，
+    # 不再因 rotational / 传输层阻断。数字按同 runner 趋势读。
+    if: github.event.inputs.publish_baseline != 'true'
+    runs-on: ${{ github.event.inputs.runner_label || vars.PERF_RUNNER_LABEL || 'ubuntu-latest' }}
+    # 现在要从 fkv 源码构建 fkv_bench（不再下载预编译二进制），给足编译时间。
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+      # 不在 job env 里用 runner.*（GitHub 不允许）；未设置变量时在 prepare
+      # step 回落到 $RUNNER_TEMP/fkv-perf-data。托管 / 自托管 runner 的 /tmp
+      # 可能是 tmpfs，不能直接当数据盘。
+      PERF_NVME_ROOT: ${{ vars.PERF_NVME_ROOT }}
+      PERF_GATE_REQUIRE_BASELINE: "1"
+      PERF_BASELINE_REPO: ${{ github.repository }}
+      PERF_GATE_OUTPUT_DIR: ${{ vars.PERF_OUTPUT_DIR || '/tmp/fkv-perf-out' }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: checkout fkv bench source
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.FKV_REPO }}
+          ref: ${{ env.FKV_COMMIT || 'main' }}
+          path: fkv
+      - name: link fkv at workspace sibling path
+        run: |
+          # eloqstore2fkv 的 workspace path 依赖写作 ../../../../fkv，从
+          # /home/runner/work/eloqstore2fkv/eloqstore2fkv 出发解析到
+          # /home/runner/work/eloqstore2fkv/fkv。checkout 在仓库内的 fkv
+          # 目录，这里补一个 sibling symlink，cargo 才能加载 workspace。
+          ln -sfn "$GITHUB_WORKSPACE/fkv" "$GITHUB_WORKSPACE/../fkv"
+      - name: assert fkv bench revision
+        run: |
+          actual=$(git -C fkv rev-parse HEAD)
+          echo "fkv bench source: requested=${FKV_COMMIT:-main} actual=$actual"
+          if [ -n "$FKV_COMMIT" ]; then
+            test "$actual" = "$FKV_COMMIT"
+          fi
+          # 回填实际 SHA：脚本据此断言 perf-baseline 与当前二进制同源。
+          echo "FKV_COMMIT=$actual" >> "$GITHUB_ENV"
+          echo "PERF_BENCH_COMMIT=$actual" >> "$GITHUB_ENV"
+      - name: prepare data dir
+        run: |
+          export PERF_NVME_ROOT="${PERF_NVME_ROOT:-$RUNNER_TEMP/fkv-perf-data}"
+          mkdir -p "$PERF_NVME_ROOT" "$PERF_GATE_OUTPUT_DIR"
+          echo "PERF_NVME_ROOT=$PERF_NVME_ROOT" >> "$GITHUB_ENV"
+      - name: assert hardware
+        run: bash scripts/perf_gate.sh hardware
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fkv -> target
+      - name: build fkv_bench from fkv source
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/fkv/target
+        run: |
+          bin=$(bash scripts/ci/build_rust_bench.sh)
+          test -x "$bin"
+          echo "PERF_BENCH_BIN=$bin" >> "$GITHUB_ENV"
+      - name: run perf gate
+        run: bash scripts/perf_gate.sh gate
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-gate-${{ github.run_id }}
+          path: ${{ env.PERF_GATE_OUTPUT_DIR }}/*.json
+          if-no-files-found: warn
+
+  perf-matrix:
+    name: perf-matrix (C++ FFI + fkv)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_baseline != 'true' && github.event.inputs.run_matrix == 'true'
+    runs-on: ${{ github.event.inputs.runner_label || vars.PERF_RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: checkout fkv bench source
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.FKV_REPO }}
+          ref: ${{ env.FKV_COMMIT || 'main' }}
+          path: fkv
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fkv -> target
+      - name: build fkv_bench
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/fkv/target
+        run: |
+          ln -sfn "$GITHUB_WORKSPACE/fkv" "$GITHUB_WORKSPACE/../fkv"
+          bin=$(bash scripts/ci/build_rust_bench.sh)
+          test -x "$bin"
+          echo "RUST_BENCH=$bin" >> "$GITHUB_ENV"
+      - name: build C++ FFI shim
+        run: |
+          CPP_BENCH_WITH_FFI=1 bash scripts/ci/build_cpp_bench.sh >/dev/null
+          lib=$(find "${CPP_FFI_BUILD_DIR:-$HOME/.cache/fkv-perf/cpp-ffi-build}" -type f -name 'libfkv_bench_ffi.so*' | head -n 1)
+          test -n "$lib"
+          echo "CPP_FFI_LIB=$lib" >> "$GITHUB_ENV"
+      - name: run redb-style matrix
+        run: |
+          cargo run --release -p fkv_bench_matrix -- \
+            --cpp-lib "$CPP_FFI_LIB" \
+            --rust-bin "$RUST_BENCH" \
+            --workdir "$RUNNER_TEMP/fkv-matrix" \
+            --rows 200000 --batch-size 1000 --kv-size 128 \
+            --read-secs 5 --readers 1,4,8,16,32 \
+            --markdown "$RUNNER_TEMP/fkv-matrix.md" \
+            --json "$RUNNER_TEMP/fkv-matrix.json"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-matrix-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/fkv-matrix.md
+            ${{ runner.temp }}/fkv-matrix.json
+          if-no-files-found: warn
+
+  perf-baseline:
+    name: perf-baseline publish
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_baseline == 'true'
+    runs-on: ${{ github.event.inputs.runner_label || vars.PERF_RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+      PERF_NVME_ROOT: ${{ vars.PERF_NVME_ROOT }}
+      PERF_BASELINE_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: checkout fkv bench source
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.FKV_REPO }}
+          ref: ${{ env.FKV_COMMIT || 'main' }}
+          path: fkv
+      - name: assert fkv bench revision
+        run: |
+          actual=$(git -C fkv rev-parse HEAD)
+          echo "fkv bench source: requested=${FKV_COMMIT:-main} actual=$actual"
+          if [ -n "$FKV_COMMIT" ]; then
+            test "$actual" = "$FKV_COMMIT"
+          fi
+          echo "FKV_COMMIT=$actual" >> "$GITHUB_ENV"
+          echo "PERF_BENCH_COMMIT=$actual" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fkv -> target
+      - name: prepare data dir
+        run: |
+          export PERF_NVME_ROOT="${PERF_NVME_ROOT:-$RUNNER_TEMP/fkv-perf-data}"
+          mkdir -p "$PERF_NVME_ROOT"
+          echo "PERF_NVME_ROOT=$PERF_NVME_ROOT" >> "$GITHUB_ENV"
+      - name: assert 4 KiB page
+        run: bash scripts/perf_gate.sh hardware
+      - name: fetch pinned eloqstore
+        # cache key 需要对实际源码树取 hash，所以先 fetch；build 脚本里的
+        # 同名 fetch 是幂等的，cache 命中时只是一次 fast no-op。
+        run: scripts/fetch_eloqstore.sh
+      - name: read pinned eloqstore commit
+        id: eloq_pin
+        run: |
+          commit=$(awk 'NR == 1 { print $3 }' COMPAT_BASELINE)
+          test -n "$commit"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+      - name: resolve C++ build dir
+        id: cpp_build_dir
+        run: |
+          # 与 scripts/ci/build_cpp_bench.sh 的默认值保持一致：源树外的持久缓存，
+          # 这样 cache 命中时不会因为 checkout 而重建。
+          dir=${CPP_BENCH_BUILD_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/fkv-perf/cpp-build}
+          mkdir -p "$dir"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "CPP_BENCH_BUILD_DIR=$dir" >> "$GITHUB_ENV"
+      - name: cache C++ build
+        # 与 engine.yml 同思路，但 key 必须锁定 pinned commit + 整个 eloqstore
+        # 源码树（含 CMakeLists / cmake/dependencies.cmake）+ 构建脚本本身。
+        # CMake cache 里是绝对路径，只有同一 workspace 布局的 runner 能复用；
+        # 未命中时退化为普通构建，不影响结果。
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.cpp_build_dir.outputs.dir }}
+          key: perf-cpp-build-${{ runner.os }}-${{ steps.eloq_pin.outputs.commit }}-${{ hashFiles('cpp/eloqstore/**', 'cpp/patches/**', 'cpp/bench_ffi/**', 'scripts/ci/build_cpp_bench.sh') }}
+      - name: build simple_bench
+        run: |
+          # 脚本自己处理 pinned fetch、apt 依赖、nix shell 回退，并把
+          # simple_bench 绝对路径打到 stdout 最后一行。
+          bin=$(bash scripts/ci/build_cpp_bench.sh)
+          test -x "$bin"
+          echo "CPP_BENCH=$bin" >> "$GITHUB_ENV"
+      - name: build fkv_bench from fkv source
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/fkv/target
+        run: |
+          # 基线二进制必须来自被审查的 fkv SHA（与 perf-gate 同源），
+          # 不再下载可能落后的滚动 perf-latest。
+          bin=$(bash scripts/ci/build_rust_bench.sh)
+          test -x "$bin"
+          echo "FKV_BENCH=$bin" >> "$GITHUB_ENV"
+      - name: run benchmarks + produce perf-baseline.json
+        env:
+          # 基线必须能追溯到产出它的 fkv SHA；缺失时 produce 直接失败。
+          PERF_REQUIRE_BENCH_COMMIT: "1"
+        run: |
+          # perf_local 的 hardware 检查对象固定为 --root（实际数据根）。
+          bash scripts/perf_local.sh \
+            --root "$PERF_NVME_ROOT/local-run" \
+            --cpp-bin "$CPP_BENCH" \
+            --rust-bin "$FKV_BENCH" \
+            --cpp-log "$RUNNER_TEMP/cpp-bench.log" \
+            --rust-history "$RUNNER_TEMP/rust-bench.json" \
+            --out "$RUNNER_TEMP/perf-baseline.json"
+      - name: publish perf-baseline release asset
+        run: |
+          # 与 gate 读取的仓库保持一致（PERF_BASELINE_REPO），不能依赖 cwd 的
+          # origin：本 workflow 的 cwd 是本仓，而历史上这里漏了 -R，导致
+          # fkv 仓的 perf-baseline 一直为空。
+          gh release view perf-baseline -R "$PERF_BASELINE_REPO" >/dev/null 2>&1 ||
+            gh release create perf-baseline \
+              -R "$PERF_BASELINE_REPO" \
+              --title "perf-baseline" \
+              --notes "Same-runner C++/Rust V6 baseline produced by .github/workflows/perf.yml" \
+              --latest=false
+          gh release upload perf-baseline -R "$PERF_BASELINE_REPO" \
+            "$RUNNER_TEMP/perf-baseline.json" --clobber
+          gh release view perf-baseline -R "$PERF_BASELINE_REPO" --json assets \
+            --jq '.assets[].name'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-baseline-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/perf-baseline.json
+            ${{ runner.temp }}/cpp-bench.log
+            ${{ runner.temp }}/rust-bench.json
+          if-no-files-found: warn

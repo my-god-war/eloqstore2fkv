@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/lt/README.md) : Sukurkite ir parodykite iššokantįjį sluoksnį uždarymo mygtuku
+[Code](../../src/webc/Code/i18n/lt/README.md) : kodo mygtukas
+[Copy](../../src/webc/Copy/i18n/lt/README.md) : Nukopijuokite tekstą į mainų sritį
+[Edit](../../src/webc/Edit/i18n/lt/README.md) : redagavimo mygtuką
+[I18n](../../src/webc/I18n/i18n/lt/README.md) : Mygtukai ir iššokantys langai sąsajos kalboms perjungti
+[Nav](../../src/webc/Nav/i18n/lt/README.md) : Viršutinė naršymo juosta, kuri automatiškai susitraukia arba išplečiama, kai puslapis slenka
+[NavL](../../src/webc/NavL/i18n/lt/README.md) : Automatiškai perjungti naršymo meniu ir grįžimo mygtuką
+[NavMenu](../../src/webc/NavMenu/i18n/lt/README.md) : Navigacijos meniu pritaikytas skirtingiems ekrano dydžiams
+[Side](../../src/webc/Side/i18n/lt/README.md) : Iš šono išstumiamos stalčių plokštės
+[Toc](../../src/webc/Toc/i18n/lt/README.md) : Katalogų naršymo komponentas
+[Btn](../../src/webc/Btn/i18n/lt/README.md) : Įprastas mygtukas ir apvalios piktogramos mygtukas
+[Card](../../src/webc/Card/i18n/lt/README.md) : Kapsulės kortelė su rodykle dešinėn rodoma suspensijoje
+[H1Txt](../../src/webc/H1Txt/i18n/lt/README.md) : Tekstūros pavadinimas ir aprašymas
+[Ing](../../src/webc/Ing/i18n/lt/README.md) : Pakrovimo arba apdorojimo būsenos indikatorius
+[Lg](../../src/webc/Lg/i18n/lt/README.md) : Matinio stiklo fonas ir kraštų paryškinimo efektas
+[MdCss](../../src/webc/MdCss/i18n/lt/README.md) : Tipografijos stiliai, optimizuoti skaitymo patirčiai
+[NavALi](../../src/webc/NavALi/i18n/lt/README.md) : Naršymo juostos nuorodų sąrašo stilius
+[O](../../src/webc/O/i18n/lt/README.md) : Nupieškite tuščiavidurį taškinį logotipą priešais elementą
+[Toast](../../src/webc/Toast/i18n/lt/README.md) : Iššokantis langas puslapio krašte
+[Back](../../src/webc/Back/i18n/lt/README.md) : mygtukas atgal
+[Box](../../src/webc/Box/i18n/lt/README.md) : Sukurkite ir parodykite iššokantįjį sluoksnį
+[Md](../../src/webc/Md/i18n/lt/README.md) : Saugiai išanalizuoti ir pateikti Markdown tekstą į HTML.
+[Pophover](../../src/webc/Pophover/i18n/lt/README.md) : slankiojo burbulo raginimas
+[Scroll](../../src/webc/Scroll/i18n/lt/README.md) : virtuali slinkties juosta
+[eloqstore2fkv](../lt/doc/README.md)
+[Patvirtinimo procesas](../lt/doc/workflow.md)
+[C++ oracle](../lt/doc/oracle.md)
+[Perkelti knygą](../lt/doc/ledger.md)
+[Našumas](../lt/doc/performance.md)
+[Peržiūrėkite įrašus](../lt/doc/issues.md)
+[Keisti žurnalą](../lt/blog/README.md) : Projekto atnaujinimo žurnalas ir našumo bei suderinamumo pakeitimų įrašas
+[2026-11-06: Pagrindinio puslapio našumo lentelė, rodiklio išplėtimas ir puslapiai](../lt/blog/2026-11-06-homepage-and-metrics.md) : Pagrindinio puslapio našumo palyginimas, vertinimo rodiklio išplėtimas, GitHub puslapiai ir kelių kalbų tinklaraščiai internete

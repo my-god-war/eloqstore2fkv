@@ -1,0 +1,15 @@
+target-*
+target/
+.data/
+data/
+*.db
+*.mote
+*.log
+.codegraph/
+node_modules/
+cpp/build/
+cpp/eloqstore/
+cpp/engine-build/
+fixtures/generated/
+/fkv-oracle-*
+fkv/

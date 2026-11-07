@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/ca/README.md) : Creeu i visualitzeu una capa emergent amb un botó de tancament
+[Code](../../src/webc/Code/i18n/ca/README.md) : botó de codi
+[Copy](../../src/webc/Copy/i18n/ca/README.md) : Copia el text al porta-retalls
+[Edit](../../src/webc/Edit/i18n/ca/README.md) : botó d'edició
+[I18n](../../src/webc/I18n/i18n/ca/README.md) : Botons i finestres emergents per canviar els idiomes de la interfície
+[Nav](../../src/webc/Nav/i18n/ca/README.md) : Barra de navegació superior que es replega o s'expandeix automàticament quan es desplaça la pàgina
+[NavL](../../src/webc/NavL/i18n/ca/README.md) : Canvia automàticament el menú de navegació i el botó de retorn
+[NavMenu](../../src/webc/NavMenu/i18n/ca/README.md) : Menú de navegació adaptat a diferents mides de pantalla
+[Side](../../src/webc/Side/i18n/ca/README.md) : Panells del calaix que llisquen des del costat
+[Toc](../../src/webc/Toc/i18n/ca/README.md) : Component de navegació de directoris
+[Btn](../../src/webc/Btn/i18n/ca/README.md) : Botó normal i botó d'icona rodona
+[Card](../../src/webc/Card/i18n/ca/README.md) : Targeta de la càpsula amb la fletxa dreta que es mostra en suspensió
+[H1Txt](../../src/webc/H1Txt/i18n/ca/README.md) : Títol i descripció de la textura
+[Ing](../../src/webc/Ing/i18n/ca/README.md) : Indicador d'estat de càrrega o processament
+[Lg](../../src/webc/Lg/i18n/ca/README.md) : Fons de vidre esmerilat i efecte de ressaltat de vora
+[MdCss](../../src/webc/MdCss/i18n/ca/README.md) : Estils de tipografia optimitzats per a l'experiència de lectura
+[NavALi](../../src/webc/NavALi/i18n/ca/README.md) : Estil de llista d'enllaços de la barra de navegació
+[O](../../src/webc/O/i18n/ca/README.md) : Dibuixa un logotip de punt buit davant de l'element
+[Toast](../../src/webc/Toast/i18n/ca/README.md) : Sol·licita una finestra emergent a la vora de la pàgina
+[Back](../../src/webc/Back/i18n/ca/README.md) : botó enrere
+[Box](../../src/webc/Box/i18n/ca/README.md) : Crear i mostrar una capa emergent
+[Md](../../src/webc/Md/i18n/ca/README.md) : Analitzeu i renderitzeu el text Markdown de manera segura a HTML.
+[Pophover](../../src/webc/Pophover/i18n/ca/README.md) : missatge de bombolla flotant
+[Scroll](../../src/webc/Scroll/i18n/ca/README.md) : barra de desplaçament virtual
+[eloqstore2fkv](../ca/doc/README.md)
+[Procés de verificació](../ca/doc/workflow.md)
+[C++ oracle](../ca/doc/oracle.md)
+[Migració del llibre major](../ca/doc/ledger.md)
+[Rendiment](../ca/doc/performance.md)
+[Revisar registres](../ca/doc/issues.md)
+[Canvia registre](../ca/blog/README.md) : Registre d'actualització del projecte i entrada de canvis de rendiment i compatibilitat
+[06-11-2026: taula de rendiment de la pàgina d'inici, ampliació d'indicadors i pàgines](../ca/blog/2026-11-06-homepage-and-metrics.md) : Comparació del rendiment de la pàgina d'inici, expansió d'indicadors d'avaluació, pàgines de GitHub i blocs multilingües en línia

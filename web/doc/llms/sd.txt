@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/sd/README.md) : هڪ بند بٽڻ سان هڪ پاپ اپ پرت ٺاهيو ۽ ڏيکاريو
+[Code](../../src/webc/Code/i18n/sd/README.md) : ڪوڊ بٽڻ
+[Copy](../../src/webc/Copy/i18n/sd/README.md) : ڪلپ بورڊ تي متن نقل ڪريو
+[Edit](../../src/webc/Edit/i18n/sd/README.md) : تبديلي جو بٽڻ
+[I18n](../../src/webc/I18n/i18n/sd/README.md) : انٽرفيس ٻولين کي مٽائڻ لاءِ بٽڻ ۽ پاپ اپ ونڊوز
+[Nav](../../src/webc/Nav/i18n/sd/README.md) : مٿيون نيويگيشن بار جيڪو خود بخود ختم ٿئي ٿو يا وڌايو وڃي ٿو جڏهن صفحو اسڪرال ٿئي ٿو
+[NavL](../../src/webc/NavL/i18n/sd/README.md) : خودڪار طور تي نيويگيشن مينيو ۽ موٽڻ واري بٽڻ کي تبديل ڪريو
+[NavMenu](../../src/webc/NavMenu/i18n/sd/README.md) : نيويگيشن مينيو مختلف اسڪرين جي سائزن سان ترتيب ڏنل
+[Side](../../src/webc/Side/i18n/sd/README.md) : دراز پينل جيڪي پاسي کان سلائڊ ڪن ٿا
+[Toc](../../src/webc/Toc/i18n/sd/README.md) : ڊاريڪٽري نيويگيشن جزو
+[Btn](../../src/webc/Btn/i18n/sd/README.md) : عام بٽڻ ۽ گول آئڪن بٽڻ
+[Card](../../src/webc/Card/i18n/sd/README.md) : ڪئپسول ڪارڊ ساڄي تير سان معطلي ۾ ڏيکاريل آهي
+[H1Txt](../../src/webc/H1Txt/i18n/sd/README.md) : بناوت جو عنوان ۽ وضاحت
+[Ing](../../src/webc/Ing/i18n/sd/README.md) : لوڊشيڊنگ يا پروسيسنگ جي حالت جو اشارو
+[Lg](../../src/webc/Lg/i18n/sd/README.md) : ڀريل گلاس پس منظر ۽ ڪنڊ نمايان اثر
+[MdCss](../../src/webc/MdCss/i18n/sd/README.md) : ٽائپوگرافي اسلوب کي پڙهڻ جي تجربي لاءِ بهتر بڻايو ويو
+[NavALi](../../src/webc/NavALi/i18n/sd/README.md) : نيويگيشن بار لنڪ لسٽ جو انداز
+[O](../../src/webc/O/i18n/sd/README.md) : عنصر جي سامهون هڪ سوراخ ڊٽ لوگو ٺاھيو
+[Toast](../../src/webc/Toast/i18n/sd/README.md) : صفحي جي ڪنڊ تي پاپ اپ ونڊو کي فوري طور تي
+[Back](../../src/webc/Back/i18n/sd/README.md) : پوئتي بٽڻ
+[Box](../../src/webc/Box/i18n/sd/README.md) : پاپ اپ پرت ٺاهيو ۽ ڊسپلي ڪريو
+[Md](../../src/webc/Md/i18n/sd/README.md) : مارڪ ڊائون ٽيڪسٽ کي HTML ۾ محفوظ طور تي پارس ۽ رينڈر ڪريو.
+[Pophover](../../src/webc/Pophover/i18n/sd/README.md) : سچل بلبل جو اشارو
+[Scroll](../../src/webc/Scroll/i18n/sd/README.md) : ورچوئل اسڪرول بار
+[eloqstore2fkv](../sd/doc/README.md)
+[تصديق جي عمل](../sd/doc/workflow.md)
+[C++ oracle](../sd/doc/oracle.md)
+[لڏپلاڻ وارو ليجر](../sd/doc/ledger.md)
+[ڪارڪردگي](../sd/doc/performance.md)
+[رڪارڊ جو جائزو وٺو](../sd/doc/issues.md)
+[لاگ تبديل ڪريو](../sd/blog/README.md) : پروجيڪٽ اپڊيٽ لاگ ۽ ڪارڪردگي ۽ مطابقت تبديلي داخلا
+[2026-11-06: هوم پيج ڪارڪردگي جدول، اشاري جي توسيع ۽ صفحا](../sd/blog/2026-11-06-homepage-and-metrics.md) : گھر جي صفحي جي ڪارڪردگي جو مقابلو، تشخيص اشاري جي توسيع، GitHub صفحا ۽ گھڻن ٻولين جا بلاگ آن لائن

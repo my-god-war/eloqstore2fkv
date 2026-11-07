@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/cs/README.md) : Vytvořte a zobrazte vyskakovací vrstvu pomocí tlačítka Zavřít
+[Code](../../src/webc/Code/i18n/cs/README.md) : kódové tlačítko
+[Copy](../../src/webc/Copy/i18n/cs/README.md) : Zkopírujte text do schránky
+[Edit](../../src/webc/Edit/i18n/cs/README.md) : tlačítko upravit
+[I18n](../../src/webc/I18n/i18n/cs/README.md) : Tlačítka a vyskakovací okna pro přepínání jazyků rozhraní
+[Nav](../../src/webc/Nav/i18n/cs/README.md) : Horní navigační panel, který se při posouvání stránky automaticky sbalí nebo rozbalí
+[NavL](../../src/webc/NavL/i18n/cs/README.md) : Automaticky přepne navigační nabídku a tlačítko návratu
+[NavMenu](../../src/webc/NavMenu/i18n/cs/README.md) : Navigační nabídka přizpůsobená různým velikostem obrazovky
+[Side](../../src/webc/Side/i18n/cs/README.md) : Panely zásuvek, které se vysouvají z boku
+[Toc](../../src/webc/Toc/i18n/cs/README.md) : Komponenta navigace v adresáři
+[Btn](../../src/webc/Btn/i18n/cs/README.md) : Obyčejné tlačítko a tlačítko s kulatou ikonou
+[Card](../../src/webc/Card/i18n/cs/README.md) : Karta kapsle se šipkou vpravo zobrazená v zavěšení
+[H1Txt](../../src/webc/H1Txt/i18n/cs/README.md) : Název a popis textury
+[Ing](../../src/webc/Ing/i18n/cs/README.md) : Indikátor stavu nakládky nebo zpracování
+[Lg](../../src/webc/Lg/i18n/cs/README.md) : Pozadí z matného skla a efekt zvýraznění okrajů
+[MdCss](../../src/webc/MdCss/i18n/cs/README.md) : Typografické styly optimalizované pro zážitek ze čtení
+[NavALi](../../src/webc/NavALi/i18n/cs/README.md) : Styl seznamu odkazů navigační lišty
+[O](../../src/webc/O/i18n/cs/README.md) : Nakreslete logo s dutým bodem před prvkem
+[Toast](../../src/webc/Toast/i18n/cs/README.md) : Vyskakovací okno na okraji stránky
+[Back](../../src/webc/Back/i18n/cs/README.md) : tlačítko zpět
+[Box](../../src/webc/Box/i18n/cs/README.md) : Vytvořte a zobrazte vyskakovací vrstvu
+[Md](../../src/webc/Md/i18n/cs/README.md) : Bezpečně analyzujte a vykreslujte text Markdown do HTML.
+[Pophover](../../src/webc/Pophover/i18n/cs/README.md) : výzva k plovoucí bublině
+[Scroll](../../src/webc/Scroll/i18n/cs/README.md) : virtuální posuvník
+[eloqstore2fkv](../cs/doc/README.md)
+[Ověřovací proces](../cs/doc/workflow.md)
+[C++ oracle](../cs/doc/oracle.md)
+[Přenést účetní knihu](../cs/doc/ledger.md)
+[Výkon](../cs/doc/performance.md)
+[Zkontrolujte záznamy](../cs/doc/issues.md)
+[Změnit protokol](../cs/blog/README.md) : Protokol aktualizací projektu a záznam změn výkonu a kompatibility
+[2026-11-06: Tabulka výkonu domovské stránky, rozšíření indikátoru a stránky](../cs/blog/2026-11-06-homepage-and-metrics.md) : Porovnání výkonu domovské stránky, rozšíření ukazatelů hodnocení, stránky GitHub a vícejazyčné online blogy

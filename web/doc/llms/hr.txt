@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/hr/README.md) : Stvorite i prikažite skočni sloj s gumbom za zatvaranje
+[Code](../../src/webc/Code/i18n/hr/README.md) : gumb koda
+[Copy](../../src/webc/Copy/i18n/hr/README.md) : Kopiraj tekst u međuspremnik
+[Edit](../../src/webc/Edit/i18n/hr/README.md) : gumb za uređivanje
+[I18n](../../src/webc/I18n/i18n/hr/README.md) : Gumbi i skočni prozori za promjenu jezika sučelja
+[Nav](../../src/webc/Nav/i18n/hr/README.md) : Gornja navigacijska traka koja se automatski sažima ili proširuje kada se stranica pomiče
+[NavL](../../src/webc/NavL/i18n/hr/README.md) : Automatski promijeni navigacijski izbornik i gumb za povratak
+[NavMenu](../../src/webc/NavMenu/i18n/hr/README.md) : Navigacijski izbornik prilagođen različitim veličinama zaslona
+[Side](../../src/webc/Side/i18n/hr/README.md) : Ploče ladice koje klize sa strane
+[Toc](../../src/webc/Toc/i18n/hr/README.md) : Komponenta navigacije imenika
+[Btn](../../src/webc/Btn/i18n/hr/README.md) : Obični gumb i gumb s okruglom ikonom
+[Card](../../src/webc/Card/i18n/hr/README.md) : Kartica kapsule sa strelicom desno prikazanom u ovjesu
+[H1Txt](../../src/webc/H1Txt/i18n/hr/README.md) : Naslov i opis teksture
+[Ing](../../src/webc/Ing/i18n/hr/README.md) : Indikator statusa učitavanja ili obrade
+[Lg](../../src/webc/Lg/i18n/hr/README.md) : Pozadina od mat stakla i efekt isticanja rubova
+[MdCss](../../src/webc/MdCss/i18n/hr/README.md) : Stilovi tipografije optimizirani za iskustvo čitanja
+[NavALi](../../src/webc/NavALi/i18n/hr/README.md) : Stil popisa veza navigacijske trake
+[O](../../src/webc/O/i18n/hr/README.md) : Nacrtajte logotip šuplje točke ispred elementa
+[Toast](../../src/webc/Toast/i18n/hr/README.md) : Promptni skočni prozor na rubu stranice
+[Back](../../src/webc/Back/i18n/hr/README.md) : gumb za povratak
+[Box](../../src/webc/Box/i18n/hr/README.md) : Stvorite i prikažite skočni sloj
+[Md](../../src/webc/Md/i18n/hr/README.md) : Sigurno raščlanite i renderirajte Markdown tekst u HTML.
+[Pophover](../../src/webc/Pophover/i18n/hr/README.md) : plutajući oblačić prompt
+[Scroll](../../src/webc/Scroll/i18n/hr/README.md) : virtualna traka za pomicanje
+[eloqstore2fkv](../hr/doc/README.md)
+[Proces provjere](../hr/doc/workflow.md)
+[C++ oracle](../hr/doc/oracle.md)
+[Migracija knjige](../hr/doc/ledger.md)
+[Performanse](../hr/doc/performance.md)
+[Pregledajte zapise](../hr/doc/issues.md)
+[Dnevnik promjena](../hr/blog/README.md) : Dnevnik ažuriranja projekta i unos promjene performansi i kompatibilnosti
+[2026-11-06: Tablica izvedbe početne stranice, proširenje pokazatelja i stranice](../hr/blog/2026-11-06-homepage-and-metrics.md) : Usporedba performansi početne stranice, proširenje pokazatelja procjene, GitHub stranice i višejezični blogovi na mreži

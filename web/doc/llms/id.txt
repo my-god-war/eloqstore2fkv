@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/id/README.md) : Buat dan tampilkan lapisan popup dengan tombol tutup
+[Code](../../src/webc/Code/i18n/id/README.md) : tombol kode
+[Copy](../../src/webc/Copy/i18n/id/README.md) : Salin teks ke papan klip
+[Edit](../../src/webc/Edit/i18n/id/README.md) : tombol edit
+[I18n](../../src/webc/I18n/i18n/id/README.md) : Tombol dan jendela pop-up untuk mengganti bahasa antarmuka
+[Nav](../../src/webc/Nav/i18n/id/README.md) : Bilah navigasi atas yang secara otomatis diciutkan atau diperluas saat halaman digulir
+[NavL](../../src/webc/NavL/i18n/id/README.md) : Secara otomatis beralih menu navigasi dan tombol kembali
+[NavMenu](../../src/webc/NavMenu/i18n/id/README.md) : Menu navigasi disesuaikan dengan ukuran layar yang berbeda
+[Side](../../src/webc/Side/i18n/id/README.md) : Panel laci yang dapat digeser keluar dari samping
+[Toc](../../src/webc/Toc/i18n/id/README.md) : Komponen Navigasi Direktori
+[Btn](../../src/webc/Btn/i18n/id/README.md) : Tombol biasa dan tombol ikon bulat
+[Card](../../src/webc/Card/i18n/id/README.md) : Kartu kapsul dengan panah kanan ditampilkan dalam suspensi
+[H1Txt](../../src/webc/H1Txt/i18n/id/README.md) : Judul dan deskripsi tekstur
+[Ing](../../src/webc/Ing/i18n/id/README.md) : Indikator status pemuatan atau pemrosesan
+[Lg](../../src/webc/Lg/i18n/id/README.md) : Latar belakang kaca buram dan efek sorotan tepi
+[MdCss](../../src/webc/MdCss/i18n/id/README.md) : Gaya tipografi dioptimalkan untuk pengalaman membaca
+[NavALi](../../src/webc/NavALi/i18n/id/README.md) : Gaya daftar tautan bilah navigasi
+[O](../../src/webc/O/i18n/id/README.md) : Gambarlah logo titik berongga di depan elemen
+[Toast](../../src/webc/Toast/i18n/id/README.md) : Jendela pop-up prompt di tepi halaman
+[Back](../../src/webc/Back/i18n/id/README.md) : tombol kembali
+[Box](../../src/webc/Box/i18n/id/README.md) : Membuat dan menampilkan lapisan popup
+[Md](../../src/webc/Md/i18n/id/README.md) : Parsing dan render teks Markdown dengan aman ke HTML.
+[Pophover](../../src/webc/Pophover/i18n/id/README.md) : gelembung mengambang cepat
+[Scroll](../../src/webc/Scroll/i18n/id/README.md) : bilah gulir virtual
+[eloqstore2fkv](../id/doc/README.md)
+[Proses verifikasi](../id/doc/workflow.md)
+[C++ oracle](../id/doc/oracle.md)
+[Migrasikan buku besar](../id/doc/ledger.md)
+[Performa](../id/doc/performance.md)
+[Tinjau catatan](../id/doc/issues.md)
+[Ubah catatan](../id/blog/README.md) : Log pembaruan proyek dan entri perubahan kinerja dan kompatibilitas
+[06-11-2026: Tabel kinerja halaman beranda, perluasan indikator, dan Halaman](../id/blog/2026-11-06-homepage-and-metrics.md) : Perbandingan kinerja halaman beranda, perluasan indikator evaluasi, Halaman GitHub dan blog multi-bahasa online

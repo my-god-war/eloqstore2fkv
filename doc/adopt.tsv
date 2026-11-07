@@ -1,0 +1,159 @@
+# fkv 迁移进度声明（账本批量对齐的事实源）
+#
+# 格式：crate <TAB或空格> status <TAB或空格> evidence路径
+#   - status 缺省 done；含义：该 crate 对应的 C++ unit 已有 Rust 实现与通过的测试。
+#     done ≠ verified：verified 需要 C++ oracle 差分证据，仍走逐 unit 的
+#     `evidence add` + `status verified`。
+#   - evidence路径：该 crate 的测试目录；adopt 会为每个推进的 unit 补一条
+#     kind=test result=pass 的证据（同路径去重）。
+#   - 只推进 todo/claimed/in_progress/review/blocked；done/verified/ignored 不动。
+#
+# 同步流程（DB 不入 git，重建后可重放）：
+#   cargo run -p fkv_ledger -- sync && cargo run -p fkv_ledger -- adopt \
+#     && cargo run -p fkv_ledger -- report --out doc/progress.md
+#
+# 单 crate 收口（保持 gap-01 的「真实剩余」口径，避免 crate 级行提前覆盖
+# 其它 crate 的 todo）：
+#   grep '^fkv_btree' doc/adopt.tsv > /tmp/fkv_btree.tsv
+#   cargo run -p fkv_ledger -- adopt --file /tmp/fkv_btree.tsv
+#
+# fkv_io 收口（2026-11-05，include/async_io_manager.h 的 92 个 unit）：
+#   grep '^fkv_io' doc/adopt.tsv > /tmp/adopt_fkv_io.tsv
+#   cargo run -p fkv_ledger -- adopt --file /tmp/adopt_fkv_io.tsv
+# fkv_io 只有 trait，实现与测试分布在 fkv_io_compio（FD 缓存 / 写合并 /
+# manifest / segment / term / 路径索引）、fkv_io_mem、fkv_cloud（cache / 驱逐 /
+# 预热 / branch-term key）、fkv_standby、fkv_task_prewarm、fkv_shard（生命周期 /
+# term）、fkv_runtime（预热 crond）。crate 级声明统一记主实现测试目录
+# `crate/io/fkv_io_compio/tests`；被 classify 判 ignored 的 46 个纯 C++ 形态 /
+# 恒零占位 unit 不受 adopt 影响。
+#
+# fkv_shard 第三簇收口（2026-11-05，include/circular_queue.h + include/tasks/
+# task.h + src/tasks/task.cpp + src/tasks/task_manager.cpp 的 58 个 unit）：
+#   grep '^fkv_shard' doc/adopt.tsv > /tmp/adopt_fkv_shard.tsv
+#   cargo run -p fkv_ledger -- adopt --file /tmp/adopt_fkv_shard.tsv
+# 13 个 done 走本行 crate 级声明，证据目录 `crate/engine/fkv_shard/tests`；
+# 45 个 C++ 形态（固定环 / 协程原语 / 线程局部 / 对象池 / 协程 Mutex）已由
+# classify 判 ignored，adopt 不会降级。实现跨 fkv_shard（队列 / 写门 / 读窗口）、
+# fkv_task_read / fkv_task_write（页加载 / overflow / large value 解析）、
+# fkv_large（segment 读）、fkv_store（ResolveValue / Shutdown 端到端）。
+#
+# fkv_buf 第四簇收口（2026-11-06，include/pool.h 9 + include/storage/
+# mem_cached_page.h 8 + src/storage/mem_cached_page.cpp 6 +
+# src/io_string_buffer.cpp 7 的 30 个 unit）：
+#   grep '^fkv_buf' doc/adopt.tsv > /tmp/adopt_fkv_buf.tsv
+#   cargo run -p fkv_ledger -- adopt --file /tmp/adopt_fkv_buf.tsv
+# 13 个 IndexPageIter unit 走本行 crate 级声明：实现 fkv_page 的
+# IndexPageIter（advance / key / page_id / valid / seek / seek_floor +
+# restart::Cursor 的 seek_to_restart / invalidate / peek_cmp），证据
+# `crate/format/fkv_page/tests`（page.rs / seek.rs / region.rs），树下降
+# 另见 fkv_btree/src/lib.rs:110 与 fkv_task_read/src/lib.rs:275。与 C++ 的
+# 已知形态差：不产出 leftmost 虚拟 entry（用 IndexPage::leftmost_ptr），
+# `Seek` 是 ceiling 而 floor 走 `seek_floor`（doc/migration.md §8.1）。
+# 17 个 C++ 形态 / scope-out 已由 classify 判 ignored，adopt 不会降级：
+# Pool 9（rev-41 用户态对象池；Rust 用 CompioStore BufPool / Vec，
+# fkv_buf::PagesPool 只是页缓冲复用原语且无生产消费者）、IndexPageIter 的
+# `= delete` 默认构造 1、IoStringBuffer .cpp 7（rev-44 注册内存 fragment
+# 容器 / Recycle；能力由 FixedBuffer + fkv_large 固定缓冲路径覆盖，测试
+# fkv_large/tests/managed.rs、fkv_store/tests/large_value.rs）。
+#
+# 未列出的 crate（如 39 个 *_cpp 对照 crate 由 issue/reject/fmt-16 跟踪）保持 todo。
+# fkv_types 第五簇收口（2026-11-06，include/utils.h 14 + src/types.cpp 10 = 24）：
+#   grep '^fkv_types' doc/adopt.tsv > /tmp/adopt_fkv_types.tsv
+#   cargo run -p fkv_ledger -- adopt --file /tmp/adopt_fkv_types.tsv
+# 14 个 done 走本行 crate 级声明，主证据目录 crate/foundation/fkv_types/tests
+# （TableIdent 6 条 + tid + UnixTs）；其余 done unit 的实现/测试在：
+# - fkv_config：ComputeStorePathLut / ParseStorePathListWithWeights /
+#   ParseCsvStringList / TrimAsciiWhitespace（crate/foundation/fkv_config/
+#   src/lib.rs:128/785/801/623，测试 tests/config.rs:223/416/477）
+# - fkv_shard：TableIdent::StorePathIndex / StorePath（RootedStore::store_of
+#   与 part_dir，crate/engine/fkv_shard/src/roots.rs:72、
+#   crate/io/fkv_io_compio/src/paths.rs:21，测试 fkv_shard/tests/roots.rs:72）
+# - fkv_btree / fkv_large：WriteDataEntry 构造与 operator<
+#   （BatchEntry::upsert/delete、BatchView 按 key 排序，测试
+#   fkv_task_write/tests/write.rs:128、fkv_btree/tests/btree.rs:172）
+# 10 个 C++ 形态 / 诊断 helper / rev-44 回收已由 classify 判 ignored，adopt
+# 不会降级：YCombinator / MakeYCombinator / function_definition@62 /
+# UnsetLowBits、BuildStorePathListWithWeights、RandomInt、CloudObjectInfo、
+# CountUsedFD、DirEntryCount、WriteDataEntry::RecycleLargeValue。
+fkv_types	done	crate/foundation/fkv_types/tests
+fkv_error	done	crate/foundation/fkv_error/tests
+# fkv_codec 第八簇收口（2026-11-06，src/coding.cpp 14）：
+#   grep '^fkv_codec' doc/adopt.tsv > /tmp/adopt_fkv_codec.tsv
+#   cargo run -p fkv_ledger -- adopt --file /tmp/adopt_fkv_codec.tsv
+# 13 个 done 走本行 crate 级声明：PutFixed16/32/64、EncodeVarint32/64、
+# PutVarint32/64、Varint32Size/Varint64Size、GetVarint32/64、
+# GetVarint32PtrFallback/GetVarint64Ptr。实现都在
+# crate/foundation/fkv_codec/src/lib.rs（put_* / append_* / varint*_len /
+# get_varint*）；测试 crate/foundation/fkv_codec/tests/codec.rs 的
+# cpp_oracle_encoding_vectors / cpp_oracle_decode_vectors，向量由直接链接
+# eloqstore src/coding.cpp 的驱动产出；盘面侧另有 fkv_compat
+# format_bytes.rs:12/60 与 fixtures/cpp 的 page/index 金标。
+# VarintLength 已由 classify 判 ignored（与 Varint64Size 逐字等价且无调用点），
+# adopt 不会降级。
+fkv_codec	done	crate/foundation/fkv_codec/tests
+fkv_config	done	crate/foundation/fkv_config/tests
+fkv_manifest	done	crate/format/fkv_manifest/tests
+fkv_compress	done	crate/format/fkv_compress/tests
+# fkv_page 第六簇收口（2026-11-06，src/storage/data_page_builder.cpp 14 +
+# src/storage/index_page_builder.cpp 8 = 22）：
+#   grep '^fkv_page' doc/adopt.tsv > /tmp/adopt_fkv_page.tsv
+#   cargo run -p fkv_ledger -- adopt --file /tmp/adopt_fkv_page.tsv
+# 21 个 done 走本行 crate 级声明，证据目录 crate/format/fkv_page/tests
+# （page.rs / format_semantics.rs / region.rs / seek.rs）；字节级另证
+# fkv_compat/tests/format_bytes.rs:12/60 与 page_oracle.rs:141/224，双向语料
+# fixtures/{cpp,rust}/{page,index} 的 10 个 case 逐字节相同。FastPageBuilder
+# 的 data 页 region 直拷路径不在本簇内 1:1（COMPAT_BASELINE 的 data 页四分页
+# 重分配口径）。IndexPageBuilder::Swap 已由 classify 判 ignored，adopt 不降级。
+fkv_page	done	crate/format/fkv_page/tests
+fkv_mapping	done	crate/core/fkv_mapping/tests
+fkv_buf	done	crate/core/fkv_buf/tests
+fkv_btree	done	crate/core/fkv_btree/tests
+fkv_large	done	crate/core/fkv_large/tests
+fkv_io	done	crate/io/fkv_io_compio/tests
+fkv_io_compio	done	crate/io/fkv_io_compio/tests
+fkv_object	done	crate/io/fkv_object/tests
+fkv_object_s3	done	crate/io/fkv_object_s3/tests
+fkv_standby	done	crate/io/fkv_standby/tests
+fkv_cloud	done	crate/engine/fkv_cloud/tests
+fkv_recovery	done	crate/engine/fkv_recovery/tests
+fkv_gc	done	crate/engine/fkv_gc/tests
+fkv_shard	done	crate/engine/fkv_shard/tests
+fkv_task_read	done	crate/engine/fkv_task_read/tests
+fkv_task_scan	done	crate/engine/fkv_task_scan/tests
+# fkv_task_write 收口（2026-11-06，include/tasks/write_buffer_aggregator.h 3 +
+# src/tasks/write_buffer_aggregator.cpp 10）：13 个 todo 中 4 个判 done——
+# WriteBufferAggregator 类与 AddPage / ShouldFlush / TakeBatch，Rust 等价实现为
+# 批内延迟写 PendingWrite（crate/engine/fkv_task_write/src/batch.rs:81-134）+
+# write_page_li 按 (file_id, page_index) 排序合并
+# （crate/io/fkv_io_compio/src/page_io.rs:110-146），
+# 证据 crate/engine/fkv_task_write/tests/write.rs:1131/1205/1717。
+# 其余 9 个是 C++ 固定写缓冲形态 / 生命周期 / 无调用点，已由 classify 判
+# ignored（doc/ledger-classification.tsv 第九簇），adopt 不降级。
+fkv_task_write	done	crate/engine/fkv_task_write/tests
+fkv_task_reopen	done	crate/engine/fkv_task_reopen/tests
+fkv_task_compact	done	crate/engine/fkv_task_compact/tests
+fkv_task_prewarm	done	crate/engine/fkv_task_prewarm/tests
+# fkv_runtime 收口（2026-11-06，include/tasks/archive_crond.h +
+# src/tasks/archive_crond.cpp）：ArchiveCrond 与 10 个成员函数 done，主证据
+# crate/engine/fkv_runtime/tests/archive_crond.rs（另有 store_path.rs 多根、
+# cloud_e2e.rs 远端列举）；ShardSchedule / DueArchive 是 C++ 调度内部形态，
+# 已由 classify 判 ignored（差异记录见 issue/new/rt-01-archive-crond-global-tick.md
+# 与 issue/new/rt-02-archive-crond-retained-zero.md）。
+fkv_runtime	done	crate/engine/fkv_runtime/tests
+fkv_store	done	crate/engine/fkv_store/tests
+# fkv_failpoint 收口（2026-11-06，include/fail_point.h 5 + include/kill_point.h 1 +
+# src/kill_point.cpp 2 = 8）：7 个 done 走本行 crate 级声明——
+# FailPoint 类 / GetInstance / ArmOnce / Disarm / ShouldFail 与 KillPoint 类 /
+# GetInstance。Rust 是进程级 OnceLock<RwLock<Registry>> 注册表
+# （crate/foundation/fkv_failpoint/src/lib.rs:106-245）：ArmOnce→set_spec("Name@1")
+# 的计数触发、Disarm→reset、ShouldFail→fail_point()、GetInstance→registry()；
+# kill 动作为 Action::Kill + kill_point()，命中 abort。主证据
+# crate/foundation/fkv_failpoint/tests/failpoint.rs；kill 真正 abort 的进程级证据在
+# crate/io/fkv_io_sim/tests/op_log_replay.rs:544-590 与
+# crate/engine/fkv_store/tests/crash_failpoint_invariants.rs:54-74（父进程断言子进程
+# 被信号终止 / 重开不变量）。TestKillRandom 已由 classify 判 ignored：C++ db_stress
+# 的概率/加权 odds + SIGTERM 形态未 1:1（src/kill_point.cpp:15-36，kill_odds_ 仅
+# db_stress 设置），Rust 用确定性 name@N!kill + abort；随机 kill point 是架构文档
+# 明列的未闭环边界（fkv/doc/architecture/05-persistence-and-recovery.md:93-95）。
+# release 构建仍可 arm 的语义差另见 issue/new/fp-01-release-builds-still-arm-failpoints.md。
+fkv_failpoint	done	crate/foundation/fkv_failpoint/tests

@@ -1,0 +1,18 @@
+[package]
+name = "fkv_engine_cross"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "C++ EloqStore 写 → Rust 读/续写 → C++ 读回的引擎级交叉测试"
+
+[dependencies]
+
+[dev-dependencies]
+compio = { version = "0.19.2", features = ["macros", "fs", "io"] }
+fkv_btree = { path = "../../../../fkv/crate/core/fkv_btree" }
+fkv_io = { path = "../../../../fkv/crate/io/fkv_io" }
+fkv_io_compio = { path = "../../../../fkv/crate/io/fkv_io_compio" }
+fkv_store = { path = "../../../../fkv/crate/engine/fkv_store" }
+fkv_types = { path = "../../../../fkv/crate/foundation/fkv_types" }

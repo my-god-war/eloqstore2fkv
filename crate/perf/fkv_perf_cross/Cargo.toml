@@ -1,0 +1,13 @@
+[package]
+name = "fkv_perf_cross"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "C++ simple_bench 日志与 Rust fkv_bench history 的跨实现性能对比（仅供 CI/网站复用）"
+
+[dependencies]
+regex = "1.13"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

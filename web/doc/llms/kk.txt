@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/kk/README.md) : Жабу түймесі бар қалқымалы қабатты жасаңыз және көрсетіңіз
+[Code](../../src/webc/Code/i18n/kk/README.md) : код түймесі
+[Copy](../../src/webc/Copy/i18n/kk/README.md) : Мәтінді алмасу буферіне көшіру
+[Edit](../../src/webc/Edit/i18n/kk/README.md) : өңдеу түймесі
+[I18n](../../src/webc/I18n/i18n/kk/README.md) : Интерфейс тілдерін ауыстыруға арналған түймелер мен қалқымалы терезелер
+[Nav](../../src/webc/Nav/i18n/kk/README.md) : Бет жылжытқанда автоматты түрде жиырылатын немесе кеңейетін жоғарғы шарлау жолағы
+[NavL](../../src/webc/NavL/i18n/kk/README.md) : Навигация мәзірін және қайтару түймесін автоматты түрде ауыстырыңыз
+[NavMenu](../../src/webc/NavMenu/i18n/kk/README.md) : Әр түрлі экран өлшемдеріне бейімделген шарлау мәзірі
+[Side](../../src/webc/Side/i18n/kk/README.md) : Бүйірден сырғып шығатын тартпа панельдері
+[Toc](../../src/webc/Toc/i18n/kk/README.md) : Каталогты шарлау құрамдас бөлігі
+[Btn](../../src/webc/Btn/i18n/kk/README.md) : Кәдімгі түйме және дөңгелек белгіше түймесі
+[Card](../../src/webc/Card/i18n/kk/README.md) : Оң жақ көрсеткісі бар капсула картасы суспензияда көрсетілген
+[H1Txt](../../src/webc/H1Txt/i18n/kk/README.md) : Текстура тақырыбы және сипаттамасы
+[Ing](../../src/webc/Ing/i18n/kk/README.md) : Жүктеу немесе өңдеу күйінің көрсеткіші
+[Lg](../../src/webc/Lg/i18n/kk/README.md) : Мұздатылған шыны фон және жиекті бөлектеу әсері
+[MdCss](../../src/webc/MdCss/i18n/kk/README.md) : Оқу тәжірибесі үшін оңтайландырылған типография стильдері
+[NavALi](../../src/webc/NavALi/i18n/kk/README.md) : Шарлау жолағы сілтеме тізімінің стилі
+[O](../../src/webc/O/i18n/kk/README.md) : Элементтің алдына қуыс нүкте логотипін салыңыз
+[Toast](../../src/webc/Toast/i18n/kk/README.md) : Беттің шетіндегі қалқымалы терезе
+[Back](../../src/webc/Back/i18n/kk/README.md) : кері түйме
+[Box](../../src/webc/Box/i18n/kk/README.md) : Қалқымалы қабат жасаңыз және көрсетіңіз
+[Md](../../src/webc/Md/i18n/kk/README.md) : Markdown мәтінін HTML тіліне қауіпсіз түрде талдаңыз және көрсетіңіз.
+[Pophover](../../src/webc/Pophover/i18n/kk/README.md) : қалқымалы көпіршікті шақыру
+[Scroll](../../src/webc/Scroll/i18n/kk/README.md) : виртуалды айналдыру жолағы
+[eloqstore2fkv](../kk/doc/README.md)
+[Тексеру процесі](../kk/doc/workflow.md)
+[C++ oracle](../kk/doc/oracle.md)
+[Көшіру кітапшасы](../kk/doc/ledger.md)
+[Өнімділік](../kk/doc/performance.md)
+[Жазбаларды қарап шығу](../kk/doc/issues.md)
+[Журналды өзгерту](../kk/blog/README.md) : Жобаны жаңарту журналы және өнімділік пен үйлесімділікті өзгерту жазбасы
+[2026-11-06: Басты бет өнімділігі кестесі, индикаторды кеңейту және Беттер](../kk/blog/2026-11-06-homepage-and-metrics.md) : Негізгі бет өнімділігін салыстыру, бағалау индикаторын кеңейту, GitHub беттері мен көп тілді онлайн блогтар

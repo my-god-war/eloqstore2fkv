@@ -1,0 +1,701 @@
+# fkv 迁移账本分类清单（gap-01）
+#
+# 由 2026-11-05 的 543 个 todo 逐条裁定，格式：
+#   unit_id<TAB>action<TAB>target_or_reason
+# - action=map：target 为 crate:layer，只写归属，不改状态；
+# - action=ignore：target 为裁定原因，指向 COMPAT_BASELINE 的「范围与排除项」块，
+#   账本会写入 status=ignored 并把原因记到 note。
+# - 第一列转义：\\ -> \, \t -> TAB, \n -> LF（tree-sitter symbol 可能含换行）。
+#
+# 重放（空账本，DB 不入库；分类行本身幂等）：
+#   cargo run -p fkv_ledger -- sync
+#   cargo run -p fkv_ledger -- map --seed --force
+#   cargo run -p fkv_ledger -- classify --file doc/ledger-classification.tsv
+#   cargo run -p fkv_ledger -- report --out doc/progress.md
+#
+# 本清单是 2026-11-05 账本快照（done=1305，来自此前 adopt）中 543 个 todo 的
+# 分流结果。gap-01 原始口径为 map 312 / ignore 231；fkv_io 收口后见下。
+#
+# 2026-11-05 fkv_io（include/async_io_manager.h）收口：92 个 todo 中 46 个判
+# done（主证据 crate/io/fkv_io_compio/tests；cloud / mem / standby / prewarm /
+# lifecycle 另见 doc/adopt.tsv 注释），46 个纯 C++ 形态（空析构 / io_uring
+# 请求、池、容器 / RAII 句柄）、恒零占位或内部协调判 ignore。
+#
+# 2026-11-05 fkv_shard 第三簇（include/circular_queue.h 15 + include/tasks/task.h
+# 4 + src/tasks/task.cpp 25 + src/tasks/task_manager.cpp 14 = 58）收口：
+# 13 个判 done（KvTask::ReadOnly、LoadPage / LoadDataPage* / LoadOverflowPage、
+# GetOverflowValue / GetLargeValue* / ResolveValueOrMetadata /
+# DecodeOverflowPointers、MaybeYield、TaskManager::Shutdown；证据见
+# doc/adopt.tsv 的 fkv_shard 行与各 unit 实现），45 个判 ignore：固定环
+# （crossfire Array / VecDeque 替代）、协程调度原语（Yield/Resume/WaitIo/FinishIo）、
+# 线程局部与全局访问器（ThdTask/ThdDsShard/ThdTerm/IoMgr/Options/Comp）、
+# 任务对象池（TaskManager 的 Get*/FreeTask/NumActive/AddExternalTask）与
+# 协程 Mutex。本文件把对应 45 条 map 行原位改为 ignore。
+#
+# 2026-11-06 fkv_buf 第四簇（include/pool.h 9 + include/storage/mem_cached_page.h
+# 8 + src/storage/mem_cached_page.cpp 6 + src/io_string_buffer.cpp 7 = 30）收口：
+# 13 个判 done（IndexPageIter 类与 .h/.cpp 方法；主证据
+# crate/format/fkv_page/tests，树下降路径见 fkv_btree / fkv_task_read 的
+# seek_floor + leftmost_ptr），17 个判 ignore：Pool 9 条（用户态对象池 rev-41 /
+# 模板 SFINAE / 偏特化扫描伪 unit）、IndexPageIter 的 `= delete` 默认构造扫描
+# 伪 unit 1 条、IoStringBuffer .cpp 7 条（rev-44 注册内存 fragment 容器 /
+# Recycle，及 operator= 被扫成 other 的伪 unit）。本文件把对应 17 条 map 行
+# 原位改为 ignore。
+# 2026-11-06 fkv_types 第五簇（include/utils.h 14 + src/types.cpp 10 = 24）收口：
+# 14 个判 done（TableIdent 的 FromString/IsValid/ShardIndex/StorePath/
+# StorePathIndex/ToString/tid；WriteDataEntry 构造与 operator<；UnixTs；
+# ComputeStorePathLut / ParseCsvStringList / ParseStorePathListWithWeights /
+# TrimAsciiWhitespace。实现分散在 fkv_types / fkv_config / fkv_shard /
+# fkv_btree，主测试目录仍记 crate/foundation/fkv_types/tests，跨 crate 证据
+# 见 doc/adopt.tsv 的 fkv_types 注释），10 个判 ignore：C++ 递归 lambda 组合子
+# （YCombinator / MakeYCombinator 2 条 + 扫描伪 unit 1 条）、无调用点模板
+# （UnsetLowBits）、C++ 宿主形态（BuildStorePathListWithWeights 的 txservice
+# gflag、RandomInt 的任选 shard、CloudObjectInfo 的 list-object 详情 DTO）、
+# 诊断 helper（CountUsedFD / DirEntryCount）与 rev-44 注册内存回收
+# （RecycleLargeValue）。本文件把对应 10 条 map 行原位改为 ignore。
+#
+# 2026-11-06 fkv_page 第六簇（src/storage/data_page_builder.cpp 14 +
+# src/storage/index_page_builder.cpp 8 = 22）收口：
+# 21 个判 done。data 侧实现 crate/format/fkv_page/src/data.rs：
+# ClampTimestampToInt64 -> clamp_ts_to_i64(:48)；DataPageBuilder 构造与 Reset 的
+# 「内容如新构造」语义 -> DataPageBuilder::new(:189)（Rust 页满时由 PageSink
+# 用 replace 重建新 builder，fkv_btree/src/lib.rs:826；无 in-place reset 调用点，
+# 输出与 C++ Reset 后重建一致，页满滚动的行为证据
+# fkv_task_write/tests/write.rs:1131 cross_group_writes_flush_once）；CurrentSizeEstimate(:212)；IsOverflowKV ->
+# is_overflow_kv(:23)；CalculateDelta -> entry_size(:95)；HeaderSize ->
+# DATA_HEADER_SIZE（header.rs:9）；Finish -> finish_inner(:282)；Add(:216)。
+# FastPageBuilder 5 条（构造 / Reset / AddRegion / CurrentSize / Finish）->
+# FastIndexPageBuilder 的 new/from_page/current_size/add_region/finish
+# （region.rs:140-231，测试 region.rs:83 region_rebuild_is_byte_identical；
+# C++ 里 FastPageBuilder 的 data 页 region 直拷路径在 Rust 由 COMPAT_BASELINE
+# 的「data 页四分页重分配按 entry 字节中点切分」口径替代，不在本簇内 1:1，
+# 产物仍互相可读）。
+# index 侧实现 crate/format/fkv_page/src/index.rs：构造(:31)、Reset(:65)、
+# CurrentSizeEstimate(:59，含 TailMetaSize 的 restart 数组口径)、Finish(:171)、
+# Add / encode_entry(:79/:113)、HeaderSize -> INDEX_HEADER_SIZE（header.rs:10）、
+# TailMetaSize 内联于 current_size_estimate。主证据
+# crate/format/fkv_page/tests（page.rs / format_semantics.rs / region.rs /
+# seek.rs）与 fkv_compat 的字节金标（format_bytes.rs:12/60）及双向语料
+# （fixtures/cpp 与 fixtures/rust 的 page / index 10 个 case 逐字节相同）。
+# 1 个判 ignore：IndexPageBuilder::Swap（C++ 成员态交换；Rust finish(self)->Vec
+# 由调用方持有，无 swap 调用点与可观察语义）。本文件把该条 map 行原位改为 ignore。
+#
+# 2026-11-06 fkv_mapping 第七簇（include/storage/page_manager.h 1 +
+# src/storage/page_manager.cpp 20 = 21）收口：6 个判 done——FindRoot（manifest
+# replay -> fkv_store/src/manifest.rs:244 reopen / :302 install_replay_state）、
+# MakeCowRoot（Rust 以 live mapper 原地写 + BatchJournal 回滚 + 请求快照隔离替代
+# RootMeta 拷贝，fkv_mapping/src/mapper.rs:199 / snapshot.rs:144）、UpdateRoot
+# （fkv_store/src/write.rs:235-237）、InstallExternalSnapshot（manifest.rs:279）、
+# SeekIndex（fkv_task_read/src/lib.rs:253 descend_step）、RootMetaBytes（fkv_store/
+# src/lib.rs:228 table_state_bytes + state.rs:87 root_meta_bytes）。15 个判 ignore：
+# rev-41 宿主/页槽形态 7 个（PageManager 类、构造、Shutdown、AllocPage、FreePage、
+# FindPage、FinishIo）；PooledFilePages 回收 FreeMappingSnapshot（sto-59，Rust 恒
+# append + SnapshotRegistry）；无调用点 InstallEmptySnapshot（空表由 open_empty
+# 懒创建）；固定字节序 comparator 的 GetComparator；5 个成员访问器（Options /
+# IoMgr / MapperArena / MapperChunkArena / RootMetaManager）。本文件把 15 条 map
+# 行原位改为 ignore。
+#
+# 2026-11-06 fkv_codec 第八簇（src/coding.cpp 14）收口：13 个判 done。
+# 实现都在 crate/foundation/fkv_codec/src/lib.rs：PutFixed16/32/64 ->
+# put_fixed16(:10)/put_fixed32(:21)/put_fixed64(:27)（LE，返回写入长度）；
+# EncodeVarint32/PutVarint32 -> put_varint32(:67)/append_varint32(:79)，
+# EncodeVarint64/PutVarint64 -> put_varint64(:56)/append_varint64(:71)；
+# Varint32Size/Varint64Size -> varint32_len(:52)/varint64_len(:43)；
+# GetVarint32/GetVarint32PtrFallback -> get_varint32(:106)，
+# GetVarint64/GetVarint64Ptr -> get_varint64(:88)（切片入参，返回 (值, 消费字节)）。
+# 证据：crate/foundation/fkv_codec/tests/codec.rs 新增
+# cpp_oracle_encoding_vectors / cpp_oracle_decode_vectors，向量由直接链接
+# eloqstore src/coding.cpp 的驱动产出（varint32/64 的 0..2^k 边界、fixed LE、
+# 追加序列），另有 varint_roundtrip / fixed_roundtrip /
+# varint_truncated_and_overflow；fkv_compat 的 format_bytes.rs:12/60 与
+# fixtures/cpp 的 page/index 金标从盘面侧覆盖 put_fixed16/32/64 + varint32。
+# 1 个判 ignore：VarintLength（与 Varint64Size 逐字等价、全仓无调用点；Rust 统一
+# varint64_len）。非规范 varint 解码差异（C++ 第 10 字节 / 超 u32 静默截断，
+# Rust 返回 Corrupted）已在 lib.rs:83-87 文档化，并由 tests/codec.rs 锁定。
+# 本文件把该条 map 行原位改为 ignore。
+# 当前 map 162 / ignore 381（total 543）。
+# 顺序固定为 classify -> adopt：adopt 不会把已 ignored 的 unit 推进为 done。
+#
+# 空账本重放：
+#   sync -> map --seed --force -> classify      # 分类行生效：370 ignored + 173 归属
+#   （可选）adopt                               # crate 级 done 覆盖层，会推进 map 行；
+#                                               # classify 已 ignored 的 unit 不被降级
+# 若把 adopt 放在 classify 之前，落在已声明 done 的 crate 里的 ignore 行会被
+# done 覆盖而跳过（fkv_io / fkv_shard / fkv_buf / fkv_types 同理），ignored
+# 总数下降且范围外裁定丢失。
+#
+# 2026-11-06 fkv_task_write 第九簇（include/tasks/write_buffer_aggregator.h 3 +
+# src/tasks/write_buffer_aggregator.cpp 10 = 13）收口：
+# 4 个判 done：WriteBufferAggregator 类与 AddPage / ShouldFlush / TakeBatch。
+# Rust 等价实现是批内延迟写 PendingWrite（crate/engine/fkv_task_write/src/
+# batch.rs:81-134 的 push / over_budget / flush）+ write_page_li 按
+# (file_id, page_index) 排序合并连续页（fkv_io_compio/src/page_io.rs:110-146）；
+# 主证据 crate/engine/fkv_task_write/tests（write.rs:1131
+# cross_group_writes_flush_once、:1205
+# multiple_dirty_index_pages_flush_in_constant_batches、:1717
+# overflow_chain_flushes_within_write_budget）。
+# 9 个判 ignore：WriteBufferBatch / SetBuffer / CanAppend / TryReserve /
+# HasBuffer（C++ AcquireWriteBuffer 池缓冲 + fixed IO 的形态；write_buffer_size
+# 不生效、rev-41 用户态缓冲池不做 1:1）、HasData / Reset / 构造（C++ 查询与
+# 生命周期形态，Rust 每批新建 PendingWrite 且空批早退内联在 flush）、
+# CurrentFileId（C++ 无调用点）。本文件把对应 9 条 map 行原位改为 ignore；
+# 其余 4 条 map 行由 adopt 推进为 done。
+#
+# 2026-11-06 fkv_config / fkv_object / fkv_standby 余量收口（7 个 todo）：
+# 2 个判 done：KvOptions::LoadFromIni 与 ParseSizeWithUnit。Rust 实现
+# crate/foundation/fkv_config/src/lib.rs:615-699（load_from_ini）、:756-781
+# （parse_size），键表由 kv_options! 宏单源生成（:232-344）；主证据
+# crate/foundation/fkv_config/tests/config.rs:170 load_ini、:279
+# ini_size_units_match_cpp，另见 :145 / :194 / :213 / :223 / :254 / :394 / :520。
+# 5 个判 ignore：KvOptions::operator==（cpp-dead，全仓无调用点；Rust 由
+# derive(PartialEq) 覆盖，lib.rs:199）、ListObjectTask /
+# ListStandbyPartitionTask 及其 Type() 四个（cpp-form 任务池标记类，仅 Type()
+# 返回枚举；Rust 无任务对象池，能力分别由 ObjectStore::list/list_page 与
+# StandbyService::list_remote_partition_li 承载，证据见各行）。
+# operator== 与四个 task 标记类由本文件原位改为 ignore；两条 config map 行由
+# adopt 推进为 done。
+#
+# 统计：map 156 / ignore 387（total 543）
+include/async_io_manager.h#class_specifier:eloqstore::AsyncIoManager	map	fkv_io:io
+include/async_io_manager.h#class_specifier:eloqstore::CloudStoreMgr	map	fkv_io:io
+include/async_io_manager.h#class_specifier:eloqstore::CloudStoreMgr::FileCleaner	map	fkv_io:io
+include/async_io_manager.h#class_specifier:eloqstore::IouringMgr	map	fkv_io:io
+include/async_io_manager.h#class_specifier:eloqstore::IouringMgr::LruFD	map	fkv_io:io
+include/async_io_manager.h#class_specifier:eloqstore::IouringMgr::LruFD::Ref	ignore	cpp-raii: 引用计数 FD 句柄（copy/move/dtor 关闭）；Rust FdCache 线程独占、句柄按 op 借用，无跨任务共享关闭语义
+include/async_io_manager.h#class_specifier:eloqstore::IouringMgr::Manifest	map	fkv_io:io
+include/async_io_manager.h#class_specifier:eloqstore::IouringMgr::MergedWriteReqPool	ignore	cpp-pool: 预分配 MergedWriteReq 池；Rust 合并写内联在 write_page_li，无请求对象池
+include/async_io_manager.h#class_specifier:eloqstore::IouringMgr::PartitionFiles	ignore	cpp-container: 每表 FD map（std::unordered_map）聚合；Rust 用 DirIndex per-table 路径索引 + 全局 FdCache（fkv_io_compio/tests/naming.rs:53）
+include/async_io_manager.h#class_specifier:eloqstore::IouringMgr::WriteReqPool	ignore	cpp-pool: 预分配 WriteReq 池 + WaitingZone；Rust 无 io_uring 请求对象，写路径按批直接提交
+include/async_io_manager.h#class_specifier:eloqstore::ManifestFile	map	fkv_io:io
+include/async_io_manager.h#class_specifier:eloqstore::MemStoreMgr	map	fkv_io:io
+include/async_io_manager.h#class_specifier:eloqstore::MemStoreMgr::Manifest	map	fkv_io:io
+include/async_io_manager.h#class_specifier:eloqstore::StandbyStoreMgr	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::AcquireCloudBuffer	ignore	scope-out: rev-41 / direct_io_buffer_pool_size 不生效（COMPAT_BASELINE 性能旋钮清单）；Rust 无云专用 buffer 池
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::AcquireTailScratch	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::AcquireWriteBuffer	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::BufIndexForAddress	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::DropLocalManifest	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::GetActiveBranch	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::GetBranchNameAndTerm	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::GetGlobalRegisteredMemory	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::GetLocalSpaceLimit	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::GetLocalSpaceUsed	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::GetOpenFileCount	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::GetOpenFileLimit	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::GlobalRegMemIndexBase	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::HasCloudBufferPool	ignore	scope-out: rev-41 用户态 buffer pool 不做 1:1；COMPAT_BASELINE 性能旋钮 direct_io_buffer_pool_size 不生效，Rust 云读复用 CompioStore BufPool / managed read
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::HasDirBusy	ignore	cpp-internal: 同 RegisterDirBusy；Rust 无并发目录删除路径（fkv_shard/tests/lifecycle.rs 覆盖串行 Drop）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::HasWriteBufferPool	ignore	cpp-gate: C++ 条件启用谓词；Rust BufPool 恒可用（按长度分桶，BUF_POOL_LIMIT=8），无「未启用」状态，无需对应 API
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::InitBackgroundJob	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::IsDirEvicting	ignore	cpp-internal: C++ 写任务等待目录驱逐；Rust 用 evict_epoch 校验（fkv_cloud/src/cache_tests.rs:90 write_file_after_evict_is_not_registered）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::IsStoreStopping	ignore	cpp-lifecycle: 同上；Rust 停止语义由 Shard::shutdown / 准入状态表达，无原子标志 API
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::NeedPrewarm	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::NotifyStoreStopping	ignore	cpp-lifecycle: io_uring 任务轮询的停止位钩子；Rust 以 Request::Shutdown + 请求准入 NotRunning 终止（fkv_shard/tests/cloud_reopen.rs:311）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::OnDataFileSealed	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::OnFileRangeWritePrepared	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::PinnedChunkFor	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::ProcessTerm	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::ReadFile	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::ReadSegments	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::RegisterDirBusy	ignore	cpp-internal: C++ 防写与分区目录删除并发；Rust 同 shard 写/控制请求串行 + per-partition WriteGate（doc/architecture/02-execution-model.md），无并发路径
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::ReleaseCloudBuffer	ignore	scope-out: rev-41 / direct_io_buffer_pool_size 不生效（COMPAT_BASELINE 性能旋钮清单）；Rust 无云专用 buffer 池
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::ReleaseTailScratch	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::ReleaseWriteBuffer	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::RestoreStartupState	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::RollbackBranchFileTail	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::SetActiveBranch	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::SetBranchFileIdTerm	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::SetBranchFileMapping	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::Stop	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::SubmitMergedWrite	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::TailScratchAcquireCount	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::UnregisterDirBusy	ignore	cpp-internal: 同 RegisterDirBusy；Rust per-shard 串行 + WriteGate，无 dir busy 计数需求
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::WriteBufferSize	ignore	scope-out: write_buffer_size / write_buffer_ratio 在 Rust 解析不生效（COMPAT_BASELINE 性能旋钮清单）；BufPool 按请求长度分桶，无单一 size
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::WriteBufferUseFixed	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::WriteSegments	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::tbl_id	ignore	scanner-artifact: GetBranchFileMapping 续行参数声明被 tree-sitter 误判为方法；C++ 无 AsyncIoManager::tbl_id
+include/async_io_manager.h#method:eloqstore::AsyncIoManager::~AsyncIoManager	ignore	cpp-form: 空虚析构（= default），无行为；Rust trait 无析构钩子
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::ActivePrewarmTasks	ignore	cpp-internal: 预热 worker 计数（供 PrewarmTask 收敛）；Rust 单 crond 分轮 + PrewarmReport（fkv_runtime/tests/prewarm.rs:186），无 worker 计数语义
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::CachedFile	ignore	cpp-ctor: 默认构造仅置空指针，无业务行为；Rust LruNode 用 arena 下标初始化
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::CachedFile::Deque	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::CachedFile::EnqueNext	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::Fdatasync	ignore	cpp-noop: CloudStoreMgr 的 no-op 性能覆盖（云端 durability 由对象存储提供）；Rust CloudStore::sync_data 走 flush + 本地 sync_data（更强 durability）
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::FdatasyncFiles	ignore	cpp-noop: 同 Fdatasync；CloudStoreMgr 直接返回 NoError，Rust 无行为缺失
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::FileCleaner	ignore	cpp-ctor: 仅保存 io_mgr_ 指针，无业务行为
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::GetObjectStore	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::GetPrewarmStats	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::HasCloudBufferPool	ignore	scope-out: rev-41 / direct_io_buffer_pool_size 不生效（COMPAT_BASELINE 性能旋钮清单）；Rust 云读复用本地 CompioStore 读池
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::HasPrewarmWorkers	ignore	cpp-internal: prewarmers_ 非空守卫；Rust 由 prewarm_cloud_cache + Cloud 后端决定 PrewarmCrond 装配，行为经 prewarm_report() 可见（fkv_runtime/tests/prewarm.rs:92/214）
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::LocalCacheRemained	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::CloudStoreMgr::ManifestFileId	ignore	cpp-internal: TypedFileId 哨兵访问器，无生产调用点（GC/prewarm 直接用 kManifest 常量）；Rust 无 TypedFileId，用 manifest 文件名/列举
+include/async_io_manager.h#method:eloqstore::IouringMgr::BaseReq	ignore	io_uring-sqe: 构造函数仅置 task_，无业务行为
+include/async_io_manager.h#method:eloqstore::IouringMgr::FinishEvictingPath	ignore	cpp-internal: 同 WaitForEvictingPath；Rust DownloadGuard / 组在飞守卫释放时唤醒等待者（fkv_cloud/src/download.rs）
+include/async_io_manager.h#method:eloqstore::IouringMgr::GetActiveBranch	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::IouringMgr::GetGlobalRegisteredMemory	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::IouringMgr::GetLocalSpaceLimit	ignore	constant-zero: C++ 显式恒返回 0（IouringMgr 不做本地缓存）；Rust CompioStore 无本地 cache 记账
+include/async_io_manager.h#method:eloqstore::IouringMgr::GetLocalSpaceUsed	ignore	constant-zero: C++ 显式恒返回 0（IouringMgr 不做本地缓存）；Rust CompioStore 无本地 cache 记账，无行为可迁移
+include/async_io_manager.h#method:eloqstore::IouringMgr::GlobalRegMemIndexBase	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::IouringMgr::HasWriteBufferPool	ignore	cpp-gate: C++ 条件启用谓词；Rust BufPool 恒可用（BUF_POOL_LIMIT=8），无「未启用」状态
+include/async_io_manager.h#method:eloqstore::IouringMgr::LruFD::Ref::function_definition@729	ignore	cpp-raii: 被删除的拷贝赋值（= delete），纯 C++ 所有权形式
+include/async_io_manager.h#method:eloqstore::IouringMgr::LruFD::Ref::function_definition@733	ignore	cpp-raii: 内联 operator bool 只判空，无业务行为
+include/async_io_manager.h#method:eloqstore::IouringMgr::SetActiveBranch	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::IouringMgr::StartEvictingPath	ignore	cpp-internal: 同 WaitForEvictingPath；Rust single_flight / 组内在飞登记覆盖（fkv_cloud/tests/cloud.rs:2165）
+include/async_io_manager.h#method:eloqstore::IouringMgr::TailScratchAcquireCount	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#method:eloqstore::IouringMgr::WaitForEvictingPath	ignore	cpp-internal: 云本地 cache per-path 驱逐等待；Rust 用 single_flight 等待者队列 + evict_epoch（fkv_cloud/tests/cloud.rs:1757/2165）
+include/async_io_manager.h#method:eloqstore::IouringMgr::WriteBufferSize	ignore	scope-out: write_buffer_size / write_buffer_ratio 在 Rust 解析不生效（COMPAT_BASELINE 性能旋钮清单）；BufPool 按请求长度分桶
+include/async_io_manager.h#method:eloqstore::IouringMgr::WriteBufferUseFixed	map	fkv_io:io
+include/async_io_manager.h#method:eloqstore::ManifestFile::~ManifestFile	ignore	cpp-form: C++ 纯虚接口的空虚析构（= default），无行为；Rust ManifestIo 无析构钩子
+include/async_io_manager.h#method:eloqstore::MemStoreMgr::GetLocalSpaceLimit	ignore	constant-zero: C++ 显式恒 0（内存后端无本地 cache）；Rust MemStore 不记账本地空间
+include/async_io_manager.h#method:eloqstore::MemStoreMgr::GetLocalSpaceUsed	ignore	constant-zero: C++ 显式恒 0（内存后端无本地 cache）；Rust MemStore 不记账本地空间
+include/async_io_manager.h#method:eloqstore::MemStoreMgr::GetOpenFileCount	ignore	constant-zero: C++ 显式恒 0（内存后端无 FD）；Rust MemStore 无 FD 概念
+include/async_io_manager.h#method:eloqstore::MemStoreMgr::GetOpenFileLimit	ignore	constant-zero: C++ 显式恒 0（内存后端无 FD）；Rust MemStore 无 FD 概念
+include/async_io_manager.h#method:eloqstore::MemStoreMgr::Manifest	ignore	cpp-ctor: 仅保存 string_view；Rust MemStore::read_manifest 直接返回 Vec<u8>（fkv_io_mem/tests/mem.rs:24）
+include/async_io_manager.h#struct_specifier:eloqstore::AsyncIoManager::PinnedChunkInfo	ignore	rev-44: GlobalRegisteredMemory slab / tail scratch 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/async_io_manager.h#struct_specifier:eloqstore::CloudStoreMgr::CachedFile	map	fkv_io:io
+include/async_io_manager.h#struct_specifier:eloqstore::CloudStoreMgr::EvictingPath	map	fkv_io:io
+include/async_io_manager.h#struct_specifier:eloqstore::IouringMgr::BaseReq	ignore	io_uring-sqe: SQE user_data 请求包装（task_/res_/flags_ 由 CQE 回填），compio 无对应请求对象
+include/async_io_manager.h#struct_specifier:eloqstore::IouringMgr::MergedWriteReq	ignore	io_uring-sqe: 合并写请求槽；Rust 合并写内联在 write_page_li（fkv_io_compio/tests/batch.rs）
+include/async_io_manager.h#struct_specifier:eloqstore::IouringMgr::WriteBufSlot	ignore	cpp-pool: 写缓冲侵入式空闲链节点；write_buffer_size 旋钮不生效（COMPAT_BASELINE），Rust BufPool 用 Vec 分桶 + BUF_POOL_LIMIT
+include/async_io_manager.h#struct_specifier:eloqstore::IouringMgr::WriteReq	ignore	io_uring-sqe: 页写请求槽（fd_ref_/next_ 由 SQ/CQ 链驱动）；Rust write_page_li 直接组批提交（fkv_io_compio/tests/batch.rs）
+include/async_io_manager.h#struct_specifier:eloqstore::MemStoreMgr::Partition	ignore	cpp-container: 内部容器（vector<unique_ptr<char[]>> + string wal）；Rust MemStore 用 page_map / manifest_map 等价实现
+include/circular_queue.h#class_specifier:eloqstore::CircularQueue	ignore	cpp-shape: 固定容量就绪环被 crossfire Array 双通道替代（fkv_shard/src/lifecycle.rs:296-303），本地暂存用 VecDeque（event_loop.rs:19-35），不存在 C++ 容器对象
+include/circular_queue.h#function:eloqstore::ValidateCapacity	ignore	cpp-shape: 容量必须为 2 的幂只是 C++ 掩码环的构造约束；Rust 用 crossfire Array（crossbeam ArrayQueue，任意容量）承载高/低优先通道，Shard::start 仅校验 queue_size>0（fkv_shard/src/lifecycle.rs:229,298）
+include/circular_queue.h#method:eloqstore::CircularQueue	ignore	cpp-shape: 构造随高/低优先通道建立完成（fkv_shard/src/lifecycle.rs:296-303），无独立对象构造语义
+include/circular_queue.h#method:eloqstore::CircularQueue::Capacity	ignore	cpp-shape: 无生产调用点；背压容量固定为 ShardConfig::queue_size（fkv_shard/src/lifecycle.rs:229）
+include/circular_queue.h#method:eloqstore::CircularQueue::Dequeue	ignore	cpp-shape: 出队由 crossfire recv/try_recv 完成（event_loop.rs:95-130），无独立 Dequeue 方法
+include/circular_queue.h#method:eloqstore::CircularQueue::Enqueue	ignore	cpp-shape: 入队由 crossfire Array send 按优先级分通道完成（sender.rs:116-119），本地暂存用 VecDeque（event_loop.rs:19-35）；C++ 2 倍扩容策略无对应语义
+include/circular_queue.h#method:eloqstore::CircularQueue::EnqueueAsFirst	ignore	cpp-shape: 仅 C++ 单测调用（tests/eloq_store_test.cpp:404-420）；Rust 的插队由低优先通道按时间片抢占 + pending.push_front 实现（event_loop.rs:132-135）
+include/circular_queue.h#method:eloqstore::CircularQueue::Erase	ignore	cpp-shape: 无生产调用点；Rust 无按索引删除就绪任务的路径，未开始请求靠 cancel 标志跳过（sender.rs RequestHandle::drop）
+include/circular_queue.h#method:eloqstore::CircularQueue::MemUsage	ignore	cpp-shape: 无调用点（仅容器 sizeof 统计）；Rust 不统计环内存，上界由通道容量与 MAX_READ_IN_FLIGHT 约束（lib.rs:43）
+include/circular_queue.h#method:eloqstore::CircularQueue::Peek	ignore	cpp-shape: C++ ExecuteReadyTasks 用 Peek+Dequeue 两步（storage/shard.cpp:1295-1296）；Rust 的 recv 直接取出并处理（event_loop.rs:95-130），无 peek 语义
+include/circular_queue.h#method:eloqstore::CircularQueue::Reset	ignore	cpp-shape: 仅 C++ 单测调用（tests/eloq_store_test.cpp:383-399），生产无调用点；Rust 队列只在 Shard::start 建立一次，生命周期内不重置（lifecycle.rs:296）
+include/circular_queue.h#method:eloqstore::CircularQueue::Size	ignore	cpp-shape: C++ 轮询 Size()>0 驱动就绪队列（storage/shard.cpp:1292-1293）；Rust 由通道空/满与 try_recv 驱动（event_loop.rs:95-130），无长度轮询
+include/circular_queue.h#method:eloqstore::CircularQueue::index	ignore	cpp-shape: 无调用点（私有掩码索引 helper）；crossfire 内部环形索引不暴露
+include/circular_queue.h#method:eloqstore::CircularQueue::rhs	ignore	cpp-shape: 环的移动构造/赋值无显式调用点；Rust 侧 crossfire 句柄 Clone 分发给调用方（sender.rs:110-120），无手写 move 语义
+include/circular_queue.h#method:eloqstore::CircularQueue::~CircularQueue	ignore	cpp-shape: 析构为默认空操作；Rust 通道在最后一个 ShardSender Drop 时关闭（sender.rs 持有 tx_hi/tx_lo）
+include/comparator.h#class_specifier:eloqstore::Comparator	map	fkv_btree:core
+include/comparator.h#method:eloqstore::Comparator::~Comparator	ignore	cmp-01: 析构无 Rust 对应（Rust 无对象析构钩子，C++ 为 virtual default 析构）
+include/eloqstore_module.h#class_specifier:eloqstore::EloqStoreModule	ignore	eloq-module: bthread EloqModule 宿主集成不迁移（COMPAT_BASELINE 范围与排除项）
+include/eloqstore_module.h#method:eloqstore::EloqStoreModule	ignore	eloq-module: bthread EloqModule 宿主集成不迁移（COMPAT_BASELINE 范围与排除项）
+include/eloqstore_module.h#method:eloqstore::EloqStoreModule::Type	ignore	eloq-module: bthread EloqModule 宿主集成不迁移（COMPAT_BASELINE 范围与排除项）
+include/eloqstore_module.h#method:eloqstore::EloqStoreModule::~EloqStoreModule	ignore	eloq-module: bthread EloqModule 宿主集成不迁移（COMPAT_BASELINE 范围与排除项）
+include/fail_point.h#class_specifier:eloqstore::FailPoint	map	fkv_failpoint:foundation
+include/fail_point.h#method:eloqstore::FailPoint::ArmOnce	map	fkv_failpoint:foundation
+include/fail_point.h#method:eloqstore::FailPoint::Disarm	map	fkv_failpoint:foundation
+include/fail_point.h#method:eloqstore::FailPoint::GetInstance	map	fkv_failpoint:foundation
+include/fail_point.h#method:eloqstore::FailPoint::ShouldFail	map	fkv_failpoint:foundation
+include/kill_point.h#class_specifier:eloqstore::KillPoint	map	fkv_failpoint:foundation
+include/pool.h#class_specifier:eloqstore::Pool	ignore	cpp-pool: C++ 通用用户态对象池；两处用途 DirectIoBufferPool（src/async_io_manager.cpp:3585，direct_io_buffer_pool_size 不生效）与 Pool<ChunkVector>（include/storage/page_mapper.h:235）在 Rust 分别由 CompioStore BufPool（crate/io/fkv_io_compio/src/lib.rs:194）与 Vec 替代；rev-41 用户态 buffer pool 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/pool.h#method:eloqstore::Pool	ignore	cpp-pool: 池构造 + 可选 Preallocate（include/pool.h:14-22）；fkv_buf::PagesPool（crate/core/fkv_buf/src/lib.rs:109）是 Rust 自有页缓冲复用原语（max_cached=0 语义与 C++ 相反、无 clear/EnsureDefaultReserve），全仓仅测试引用；rev-41 用户态 buffer pool 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/pool.h#method:eloqstore::Pool::Acquire	ignore	cpp-pool: 取池对象（clear + EnsureDefaultReserve，include/pool.h:24-37）；Rust 无通用对象池 API：云 O_DIRECT 缓冲走 CompioStore BufPool（crate/io/fkv_io_compio/src/lib.rs:194），mapper chunk 用 Vec；rev-41 用户态 buffer pool 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/pool.h#method:eloqstore::Pool::Preallocate	ignore	cpp-pool: 构造时预热 max_cached 个对象（include/pool.h:53-66；仅 direct_io_buffer_pool_ 使用，direct_io_buffer_pool_size 旋钮不生效）；Rust 无预分配池；rev-41 用户态 buffer pool 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/pool.h#method:eloqstore::Pool::Release	ignore	cpp-pool: 归还对象（max_cached 满则丢弃，include/pool.h:39-46）；Rust 无对象池归还 API，缓冲生命周期由 FixedBuffer Drop / Vec drop 回收（crate/io/fkv_io/src/lib.rs:443）；rev-41 用户态 buffer pool 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/pool.h#method:eloqstore::Pool::ReserveHelper::Call	ignore	cpp-sfinae: 主模板 Call 空实现（include/pool.h:69-75），仅 SFINAE 兜底；Rust AlignedBuf 定长、无 EnsureDefaultReserve 钩子，无运行时实体
+include/pool.h#method:eloqstore::Pool::ReserveHelper<\n        U,\n        std::void_t<decltype(std::declval<U &>().EnsureDefaultReserve())>>::Call	ignore	扫描伪 unit：偏特化 ReserveHelper<...>::Call（include/pool.h:78-88，仅转调 EnsureDefaultReserve），symbol 含模板签名，无独立代码实体
+include/pool.h#struct_specifier:eloqstore::Pool::ReserveHelper	ignore	cpp-sfinae: ReserveHelper 主模板（include/pool.h:68-75），按 U 是否有 EnsureDefaultReserve 选择实现；Rust 无对应模板分派实体
+include/pool.h#struct_specifier:eloqstore::Pool::ReserveHelper<\n        U,\n        std::void_t<decltype(std::declval<U &>().EnsureDefaultReserve())>>	ignore	扫描伪 unit：tree-sitter 把 ReserveHelper<U, std::void_t<...>> 偏特化记为 struct_specifier（symbol 含模板签名与换行），无独立代码实体
+include/sdk_runtime.h#class_specifier:eloqstore::sdk::KVCacheManager	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#class_specifier:eloqstore::sdk::KVCacheWorker	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheManager	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheManager::function_definition@107	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheManager::io_uring_registered	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheManager::options	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheManager::shards	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheManager::started	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheWorker	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheWorker::attached	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheWorker::buffer_pool_descriptor	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#method:eloqstore::sdk::KVCacheWorker::function_definition@192	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#struct_specifier:eloqstore::sdk::KVCacheBufferHandle	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#struct_specifier:eloqstore::sdk::KVCacheOptions	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#struct_specifier:eloqstore::sdk::KVCacheRequestState	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#struct_specifier:eloqstore::sdk::KVCacheRuntimeMetrics	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/sdk_runtime.h#struct_specifier:eloqstore::sdk::ShardLayout	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#class_specifier:eloqstore::IndexPageIter	map	fkv_buf:core
+include/storage/mem_cached_page.h#class_specifier:eloqstore::MemCachedPage	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#class_specifier:eloqstore::MemCachedPage::Handle	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::IndexPageIter	ignore	扫描伪 unit：tree-sitter 把 `IndexPageIter() = delete`（include/storage/mem_cached_page.h:241）记为 method 且 symbol 退化为类名；纯 C++ 禁用默认构造形态，Rust 用 IndexPageIter::new(page) 从页字节构造
+include/storage/mem_cached_page.h#method:eloqstore::IndexPageIter::GetPageId	map	fkv_buf:core
+include/storage/mem_cached_page.h#method:eloqstore::IndexPageIter::HasNext	map	fkv_buf:core
+include/storage/mem_cached_page.h#method:eloqstore::IndexPageIter::Key	map	fkv_buf:core
+include/storage/mem_cached_page.h#method:eloqstore::IndexPageIter::Next	map	fkv_buf:core
+include/storage/mem_cached_page.h#method:eloqstore::IndexPageIter::RestartOffset	map	fkv_buf:core
+include/storage/mem_cached_page.h#method:eloqstore::IndexPageIter::SeekToRestart	map	fkv_buf:core
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Error	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::GetFilePageId	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::GetPageId	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Handle	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Handle::Get	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Handle::Release	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Handle::Reset	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Handle::function_definition@39	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Handle::function_definition@79	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Handle::function_definition@84	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Handle::other	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Handle::~Handle	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::IsDetached	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::IsPageIdValid	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::IsPinned	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::IsRegistered	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::PagePtr	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Pin	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::SetError	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::SetFilePageId	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::SetPage	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::SetPageId	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/mem_cached_page.h#method:eloqstore::MemCachedPage::Unpin	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/page_manager.h#class_specifier:eloqstore::PageManager	ignore	rev-41: C++ 宿主容器（buffer pool 页槽 + MappingArena/RootMetaMgr + io 指针）；Rust 无同名类型，映射/快照归 fkv_mapping、表级 root 与淘汰归 fkv_store TableState（COMPAT_BASELINE 范围与排除项）
+include/storage/page_manager.h#method:eloqstore::PageManager::DataCacheHits	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/page_manager.h#method:eloqstore::PageManager::DataCacheMisses	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/page_manager.h#method:eloqstore::PageManager::IncrDataCacheHit	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/page_manager.h#method:eloqstore::PageManager::IncrDataCacheMiss	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/storage/page_manager.h#method:eloqstore::PageManager::ResetDataCacheCounters	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/tasks/archive_crond.h#class_specifier:eloqstore::ArchiveCrond	map	fkv_runtime:engine
+include/tasks/archive_crond.h#struct_specifier:eloqstore::ArchiveCrond::DueArchive	ignore	cpp-shape: C++ 单次调度循环的栈上暂存结构 {ds_shard_id,generation,req}（include/tasks/archive_crond.h:93-98）；Rust tick 直接以 pending: Vec<TableIdent> 过滤后交 GlobalFanout 投递（crate/engine/fkv_runtime/src/archive.rs:267-284），无同名对象/独立语义；per-shard 调度差异见 issue/new/rt-01-archive-crond-global-tick.md
+include/tasks/archive_crond.h#struct_specifier:eloqstore::ArchiveCrond::ShardSchedule	ignore	cpp-shape: C++ 每 shard 调度表（next_due/generation/attached/in_flight/req，include/tasks/archive_crond.h:74-91）；Rust 仅以 ArchiveState.attached_li + 单一全局 interval tick 近似（crate/engine/fkv_runtime/src/archive.rs:46-70,243-284），无 per-shard 调度对象；与 C++ 独立调度的差异见 issue/new/rt-01-archive-crond-global-tick.md
+include/tasks/attach_shard_task.h#class_specifier:eloqstore::AttachShardTask	ignore	sto-61b: 单进程多 DS shard 托管不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/tasks/attach_shard_task.h#method:eloqstore::AttachShardTask::Type	ignore	sto-61b: 单进程多 DS shard 托管不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/tasks/detach_shard_task.h#class_specifier:eloqstore::DetachShardTask	ignore	sto-61b: 单进程多 DS shard 托管不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/tasks/detach_shard_task.h#method:eloqstore::DetachShardTask::Type	ignore	sto-61b: 单进程多 DS shard 托管不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/tasks/list_object_task.h#class_specifier:eloqstore::ListObjectTask	ignore	cpp-form: C++ 任务对象池标记类，全文仅 Type() 返回 TaskType::ListObject（include/tasks/list_object_task.h:5-12），无字段/无逻辑；池化见 src/tasks/task_manager.cpp:167-171,224-226。Rust 无任务对象池，对象列举能力由 ObjectStore::list/list_page 承载（crate/io/fkv_object/src/lib.rs:92,107-132；tests/object.rs:11,50,141；S3 后端 fkv_object_s3/tests/s3_mock.rs:356,484）
+include/tasks/list_object_task.h#method:eloqstore::ListObjectTask::Type	ignore	cpp-form: 仅返回 TaskType::ListObject 的枚举标签（include/tasks/list_object_task.h:8-11），服务 C++ 协程任务池的 FreeTask switch；Rust 请求与 IO 无 TaskType 分层，同一能力见 ObjectStore::list_page（crate/io/fkv_object/src/lib.rs:107-132）与 tests/object.rs:50,141
+include/tasks/list_standby_partition_task.h#class_specifier:eloqstore::ListStandbyPartitionTask	ignore	cpp-form: C++ 任务对象池标记类，全文仅 Type() 返回 TaskType::ListStandbyPartition（include/tasks/list_standby_partition_task.h:7-14），无字段/无逻辑；池化见 src/tasks/task_manager.cpp:173-177,227-230，完成日志见 src/standby_service.cpp:548-560。Rust 无任务对象池，能力由 StandbyService::list_remote_partition_li 承载（crate/io/fkv_standby/src/lib.rs:284-286 → RemoteSource::list_table_li:172,197-200；调用点 crate/engine/fkv_shard/src/standby.rs:53-61；tests/standby.rs:506,768,812）
+include/tasks/list_standby_partition_task.h#method:eloqstore::ListStandbyPartitionTask::Type	ignore	cpp-form: 仅返回 TaskType::ListStandbyPartition 的枚举标签（include/tasks/list_standby_partition_task.h:10-13），服务 C++ 协程任务池的 FreeTask switch；Rust 以 Request::ListStandbyPartition 直接路由（crate/engine/fkv_shard/src/dispatch.rs:287），同一能力见 fkv_standby/src/lib.rs:284-286 与 tests/standby.rs:768
+include/tasks/task.h#class_specifier:eloqstore::KvTask	ignore	cpp-coroutine: boost::context continuation + TaskStatus 状态机的协程任务对象；Rust 用 async future 直接执行，上下文由 Envelope/ReadSlot 承载（fkv_shard/src/sender.rs:83、fkv_shard/src/read/flight.rs:30）
+include/tasks/task.h#class_specifier:eloqstore::Mutex	ignore	cpp-coroutine: WaitingZone + Yield 的协程互斥量；Rust 无协程 Mutex，FD 缓存按线程独占（fkv_io_compio/src/lib.rs:167-180）
+include/tasks/task.h#class_specifier:eloqstore::WaitingSeat	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/tasks/task.h#class_specifier:eloqstore::WaitingZone	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/tasks/task.h#method:eloqstore::KvTask::ReadOnly	map	fkv_shard:engine
+include/tasks/task.h#method:eloqstore::KvTask::~KvTask	ignore	cpp-coroutine: 虚析构 + 对象池回收形态；Rust future 完成即 Drop，无任务对象复用
+include/tasks/task.h#method:eloqstore::WaitingZone	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+include/tasks/write_buffer_aggregator.h#class_specifier:eloqstore::WriteBufferAggregator	map	fkv_task_write:engine
+include/tasks/write_buffer_aggregator.h#method:eloqstore::WriteBufferAggregator::CurrentFileId	ignore	cpp-dead: 定义于 include/tasks/write_buffer_aggregator.h:43-46，但 C++ 生产与测试均无调用点（文件 seal 检测实际用 WriteTask::last_append_file_id_，src/tasks/write_task.cpp:344-362）；Rust 无对应访问器
+include/tasks/write_buffer_aggregator.h#struct_specifier:eloqstore::WriteBufferBatch	ignore	cpp-form: C++ 合并写描述符（buffer/buffer_index/use_fixed/file_id/start_offset/bytes/release_ptrs/release_indices，include/tasks/write_buffer_aggregator.h:14-24），承载 AcquireWriteBuffer 池缓冲与 fixed IO；Rust 由 PendingWrite（crate/engine/fkv_task_write/src/batch.rs:81）直接给 write_page_li 传 (FilePageId, Vec<u8>) 列表，无缓冲/文件偏移描述符；write_buffer_size 不生效、用户态缓冲池不做 1:1（COMPAT_BASELINE / rev-41）
+include/test_utils.h#class_specifier:test_util::ConcurrencyTester	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+include/test_utils.h#class_specifier:test_util::ManifestVerifier	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+include/test_utils.h#class_specifier:test_util::MapVerifier	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+include/test_utils.h#method:test_util::ConcurrencyTester::Reader	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+include/test_utils.h#struct_specifier:test_util::ConcurrencyTester::Partition	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+include/test_utils.h#struct_specifier:test_util::ConcurrencyTester::Reader	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+include/utils.h#function:eloqstore::BuildStorePathListWithWeights	ignore	cpp-host: 仅在 ELOQSTORE_WITH_TXSERVICE 下把 path:weights 回写成 gflag eloq_store_data_path_list（src/eloq_store.cpp:733-741）；fkv 无 txservice/gflag 宿主集成，KvOption 为类型化配置，反序列化方向由 parse_store_path（crate/foundation/fkv_config/src/lib.rs:785）覆盖，无回写消费者
+include/utils.h#function:eloqstore::ComputeStorePathLut	map	fkv_types:foundation
+include/utils.h#function:eloqstore::ParseCsvStringList	map	fkv_types:foundation
+include/utils.h#function:eloqstore::ParseStorePathListWithWeights	map	fkv_types:foundation
+include/utils.h#function:eloqstore::TrimAsciiWhitespace	map	fkv_types:foundation
+include/utils.h#function:utils::CountUsedFD	ignore	cpp-diagnostic: 仅 Linux /proc/self/fd 的进程级句柄计数（include/utils.h:52-55），唯一生产用途是 Start 时为 io_uring sparse file 注册裁剪 fd_limit（src/eloq_store.cpp:794-843）；Rust 不预注册 FD 槽位，fd_limit 按 shard 均分（crate/engine/fkv_runtime/src/startup.rs:64-71），句柄耗尽由 EMFILE/ENFILE→OpenFileLimit 兜底（crate/io/fkv_io_compio/src/lib.rs:393）；fd_cache_len（crate/io/fkv_io_compio/src/api.rs:186）是 per-store 缓存句柄数，不是进程 FD 计数
+include/utils.h#function:utils::DirEntryCount	ignore	cpp-diagnostic: 通用目录条目计数（include/utils.h:45-49），生产仅经 CountUsedFD 调用，其余是 benchmark/tests（benchmark/load_bench.cpp:130、tests/persist.cpp:492）；Rust 无此 helper，目录扫描按表构建 DirIndex（crate/io/fkv_io_compio/src/fd_cache.rs:277 scan_dir），测试直接用 read_dir().count()（crate/engine/fkv_shard/tests/backend.rs:94）
+include/utils.h#function:utils::MakeYCombinator	ignore	cpp-idiom: C++ 递归 lambda 组合子工厂（include/utils.h:68-72），仅供 batch_write_task.cpp:465 的 overflow 重加自调用；Rust 把「Add 失败 → 写 overflow 指针 → 留在当前页」内联进 PageSink::push（crate/core/fkv_btree/src/lib.rs:788-834），无运行时实体
+include/utils.h#function:utils::RandomInt	ignore	cpp-shape: 仅 ExecSyncOnAnyShard 用来随机挑一个 shard 执行全局列举（src/eloq_store.cpp:2565-2570）；Rust 全局 archive/reopen/列举由 Runtime 直接持有 CloudStore 执行（crate/engine/fkv_runtime/src/archive.rs:423,564），无「任选 shard」语义
+include/utils.h#function:utils::UnixTs	map	fkv_types:foundation
+include/utils.h#function:utils::UnsetLowBits	ignore	cpp-shape: 无调用点（全仓仅 include/utils.h:32-37 定义）；模板位运算 helper 未被使用，无运行时语义
+include/utils.h#method:utils::YCombinator::function_definition@62	ignore	扫描伪 unit: tree-sitter 把 YCombinator 的模板 operator() 定义（include/utils.h:61-65）记成 function_definition@62；无独立命名实体，Rust 无对应
+include/utils.h#struct_specifier:utils::CloudObjectInfo	ignore	cpp-form: C++ list-object / prewarm 详情 DTO（name/path/size/is_dir/mod_time/continuation_token，include/utils.h:22-30）；Rust 列举用 ObjectMeta{key,etag,size} + ListPage.next_token（crate/io/fkv_object/src/lib.rs:15,23，测试 crate/io/fkv_object/tests/object.rs:50），不保留 path/is_dir/mod_time（递归前缀列举无目录条目、prewarm 流式消费）
+include/utils.h#struct_specifier:utils::YCombinator	ignore	cpp-idiom: C++ 递归 lambda 组合子模板（include/utils.h:57-66）；Rust 无对应类型，递归由具名函数/闭包实现
+src/coding.cpp#function:eloqstore::EncodeVarint32	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::EncodeVarint64	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::GetVarint32	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::GetVarint32PtrFallback	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::GetVarint64	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::GetVarint64Ptr	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::PutFixed16	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::PutFixed32	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::PutFixed64	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::PutVarint32	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::PutVarint64	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::Varint32Size	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::Varint64Size	map	fkv_codec:foundation
+src/coding.cpp#function:eloqstore::VarintLength	ignore	cpp-duplicate: 与 Varint64Size 实现逐字等价（C++ oracle 在 0/127/128/2^k 边界的长度全部相等），全仓无调用点；Rust 统一由 fkv_codec::varint64_len 覆盖，不再保留同名入口
+src/comparator.cpp#class_specifier:eloqstore::BytewiseComparatorImpl	map	fkv_btree:core
+src/comparator.cpp#function:eloqstore::Comparator::DefaultComparator	map	fkv_btree:core
+src/comparator.cpp#method:eloqstore::BytewiseComparatorImpl	map	fkv_btree:core
+src/comparator.cpp#method:eloqstore::BytewiseComparatorImpl::Compare	map	fkv_btree:core
+src/comparator.cpp#method:eloqstore::BytewiseComparatorImpl::FindShortSuccessor	ignore	cmp-02: 无生产调用点（仅 include/comparator.h:56 声明、src/comparator.cpp:90 定义）
+src/comparator.cpp#method:eloqstore::BytewiseComparatorImpl::FindShortestSeparator	map	fkv_btree:core
+src/comparator.cpp#method:eloqstore::BytewiseComparatorImpl::Name	ignore	cmp-03: Name() 无调用点；manifest/root_meta 无 comparator 字段（盘面不存储 comparator name）
+src/comparator.cpp#method:eloqstore::BytewiseComparatorImpl::~BytewiseComparatorImpl	ignore	cmp-04: 析构无 Rust 对应（C++ 空析构，src/comparator.cpp:16）
+src/eloqstore_module.cpp#function:eloqstore::EloqStoreModule::ExtThdEnd	ignore	eloq-module: bthread EloqModule 宿主集成不迁移（COMPAT_BASELINE 范围与排除项）
+src/eloqstore_module.cpp#function:eloqstore::EloqStoreModule::ExtThdStart	ignore	eloq-module: bthread EloqModule 宿主集成不迁移（COMPAT_BASELINE 范围与排除项）
+src/eloqstore_module.cpp#function:eloqstore::EloqStoreModule::HasTask	ignore	eloq-module: bthread EloqModule 宿主集成不迁移（COMPAT_BASELINE 范围与排除项）
+src/eloqstore_module.cpp#function:eloqstore::EloqStoreModule::Process	ignore	eloq-module: bthread EloqModule 宿主集成不迁移（COMPAT_BASELINE 范围与排除项）
+src/io_string_buffer.cpp#function:eloqstore::IoStringBuffer::Append	ignore	cpp-container: 追加 io_uring 注册内存 fragment（src/io_string_buffer.cpp:30-33）；Rust put_large_fixed 把 value 拷入单个 FixedBuffer 后按段写（crate/engine/fkv_store/src/write.rs:292,478），不做多 fragment 聚合；rev-44 注册内存 fragment 形态（COMPAT_BASELINE 范围与排除项）
+src/io_string_buffer.cpp#function:eloqstore::IoStringBuffer::Fragments	ignore	cpp-container: fragment 视图供按段规划 IO（src/io_string_buffer.cpp:45-48）；Rust 由 batch::write_batch 按 segment_size 切连续切片（crate/core/fkv_large/src/batch.rs:64）；rev-44 注册内存 fragment 形态（COMPAT_BASELINE 范围与排除项）
+src/io_string_buffer.cpp#function:eloqstore::IoStringBuffer::IoStringBuffer	ignore	cpp-container: IoStringBuffer 构造（默认 + move，src/io_string_buffer.cpp:8-17，fragments_ 预留 16）；该容器是 rev-44 注册内存 fragment 列表，Rust 以调用方连续切片 + FixedBuffer 租借替代（crate/io/fkv_io/src/lib.rs:279），无对应对象；rev-44（COMPAT_BASELINE 范围与排除项）
+src/io_string_buffer.cpp#function:eloqstore::IoStringBuffer::Recycle	ignore	rev-44: GlobalRegisteredMemory fragment 回收（按 reg_mem_index_base 归还 chunk，src/io_string_buffer.cpp:50-61）不做 1:1（COMPAT_BASELINE 范围与排除项）；Rust 注册槽由 FixedBuffer Drop 归还（crate/io/fkv_io/src/lib.rs:443）
+src/io_string_buffer.cpp#function:eloqstore::IoStringBuffer::SetSize	ignore	cpp-container: 设置 fragment 总长（src/io_string_buffer.cpp:40-43）；Rust 在 FixedSink::prepare 内写 value_len（crate/engine/fkv_store/src/write.rs:293-300），无独立 SetSize；rev-44 fragment 形态（COMPAT_BASELINE 范围与排除项）
+src/io_string_buffer.cpp#function:eloqstore::IoStringBuffer::Size	ignore	cpp-container: fragment 累计字节数（src/io_string_buffer.cpp:35-38）；Rust 用 slice len / FixedSink::value_len（crate/engine/fkv_store/src/write.rs:287-313）直接可得；rev-44 fragment 形态（COMPAT_BASELINE 范围与排除项）
+src/io_string_buffer.cpp#function:eloqstore::other	ignore	扫描伪 unit：tree-sitter 把 move 赋值 operator= 的参数名 `other` 当作符号（src/io_string_buffer.cpp:19），无独立命名实体
+src/kill_point.cpp#function:eloqstore::KillPoint::GetInstance	map	fkv_failpoint:foundation
+src/kill_point.cpp#function:eloqstore::KillPoint::TestKillRandom	ignore	cpp-test-harness: db_stress 概率杀进程（kill_odds_ × odds_weight 的 OneIn + SIGTERM，src/kill_point.cpp:15-36；kill_odds_ 仅由 db_stress 设置，db_stress_driver.cpp:149 / concurrent_test.cpp:55）；Rust 以确定性命名 kill point `name@N!kill` + abort 替代（fkv_failpoint/src/lib.rs:224-233；测试 fkv_io_sim/tests/op_log_replay.rs:544-590、fkv_store/tests/crash_failpoint_invariants.rs:54-74）；随机概率/加权 odds 未实现，架构文档已列为未闭环边界（fkv/doc/architecture/05-persistence-and-recovery.md:77-82,93-95）
+src/kv_options.cpp#function:eloqstore::KvOptions::LoadFromIni	map	fkv_config:foundation
+src/kv_options.cpp#function:eloqstore::KvOptions::operator==	ignore	cpp-dead: 定义于 src/kv_options.cpp:388-441，全仓（src / include / tests / benchmark / db_stress / rust ffi）无调用点，生产与测试均只用 LoadFromIni；Rust KvOption 以 derive(PartialEq) 提供逐字段比较（crate/foundation/fkv_config/src/lib.rs:199），无行为需要迁移
+src/kv_options.cpp#function:eloqstore::ParseSizeWithUnit	map	fkv_config:foundation
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::KVCacheRuntimeHelpers::AllocateEntryForRequest	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::KVCacheRuntimeHelpers::EnqueueFlushWork	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::KVCacheRuntimeHelpers::EntryOffsetBytes	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::KVCacheRuntimeHelpers::IsDirtyState	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::KVCacheRuntimeHelpers::IsResidentState	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::KVCacheRuntimeHelpers::RemoveResidentEntryMapping	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::KVCacheRuntimeHelpers::ResetEntryToFree	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::KVCacheRuntimeHelpers::TouchResidentLru	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::AlignUp	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::BuildDefaultSharedMemoryName	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::BuildShards	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::BuildSharedMemoryFsPath	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::CleanupSharedMemory	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::CreateSharedMemory	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::DecodeBufferHandleRecord	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::DecodePayloadMetadata	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::DecodeRequestStateRecord	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::EncodeBufferHandleRecord	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::EncodePayloadMetadata	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::EncodeRequestStateRecord	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::EnsureWorkerSocketConnected	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::ExchangeWorkerIpc	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::HandleManagerIpcMessage	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::MakeRequestId	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::MakeResidentIndexKey	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::ParseUint32	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::ParseUint64	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::PartitionIdForKey	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::PinnedReadBytes	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::ReceiveFrames	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::RequestShardIndex	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::SendFrames	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/common.cpp#function:eloqstore::sdk::runtime_internal::Split	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/internal.h#struct_specifier:eloqstore::sdk::KVCacheManager::Impl	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/internal.h#struct_specifier:eloqstore::sdk::KVCacheManager::Impl::BufferEntryState	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/internal.h#struct_specifier:eloqstore::sdk::KVCacheManager::Impl::ShardState	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/internal.h#struct_specifier:eloqstore::sdk::KVCacheManager::Impl::ShardState::FlushItem	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/internal.h#struct_specifier:eloqstore::sdk::KVCacheRuntimeHelpers	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/internal.h#struct_specifier:eloqstore::sdk::KVCacheRuntimeManagerOps	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/internal.h#struct_specifier:eloqstore::sdk::KVCacheWorker::Impl	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::BeginLoad	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::BeginSave	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::CheckRequest	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::ContainsKey	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::ExportBufferPoolDescriptor	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::FinishSave	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::GetMetrics	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::GetReadyBuffer	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::KVCacheManager	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::RegisterIoUringBuffers	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::Start	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::Stop	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheManager::~KVCacheManager	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheRuntimeManagerOps::BeginLoad	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheRuntimeManagerOps::BeginSave	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheRuntimeManagerOps::ContainsKey	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::KVCacheRuntimeManagerOps::FinishSave	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#function:eloqstore::sdk::SteadyNowNs	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/manager.cpp#struct_specifier:eloqstore::sdk::PendingFlushEntry	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::AttachBufferPool	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::BeginLoad	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::BeginSave	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::CheckRequest	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::CheckRequests	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::DetachBufferPool	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::FinishSave	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::GetReadyBuffer	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::KVCacheWorker	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/sdk_runtime/worker.cpp#function:eloqstore::sdk::KVCacheWorker::~KVCacheWorker	ignore	sdk-runtime: SDK 共享内存宿主运行时不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/data_page_builder.cpp#function:eloqstore::ClampTimestampToInt64	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::DataPageBuilder::Add	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::DataPageBuilder::CalculateDelta	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::DataPageBuilder::CurrentSizeEstimate	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::DataPageBuilder::DataPageBuilder	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::DataPageBuilder::Finish	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::DataPageBuilder::HeaderSize	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::DataPageBuilder::IsOverflowKV	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::DataPageBuilder::Reset	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::FastPageBuilder::AddRegion	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::FastPageBuilder::CurrentSize	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::FastPageBuilder::FastPageBuilder	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::FastPageBuilder::Finish	map	fkv_page:format
+src/storage/data_page_builder.cpp#function:eloqstore::FastPageBuilder::Reset	map	fkv_page:format
+src/storage/index_page_builder.cpp#function:eloqstore::IndexPageBuilder::Add	map	fkv_page:format
+src/storage/index_page_builder.cpp#function:eloqstore::IndexPageBuilder::CurrentSizeEstimate	map	fkv_page:format
+src/storage/index_page_builder.cpp#function:eloqstore::IndexPageBuilder::Finish	map	fkv_page:format
+src/storage/index_page_builder.cpp#function:eloqstore::IndexPageBuilder::HeaderSize	map	fkv_page:format
+src/storage/index_page_builder.cpp#function:eloqstore::IndexPageBuilder::IndexPageBuilder	map	fkv_page:format
+src/storage/index_page_builder.cpp#function:eloqstore::IndexPageBuilder::Reset	map	fkv_page:format
+src/storage/index_page_builder.cpp#function:eloqstore::IndexPageBuilder::Swap	ignore	cpp-shape: 纯 builder 成员态交换（src/tasks/batch_write_task.cpp:1244 把临时 idx_builder 移入成员）；Rust IndexPageBuilder::finish(self)->Vec 直接转移所有权，build_index_page_li 由调用方持有结果（crate/engine/fkv_task_write/src/index.rs:357-386），无 swap 调用点与可观察语义
+src/storage/index_page_builder.cpp#function:eloqstore::IndexPageBuilder::TailMetaSize	map	fkv_page:format
+src/storage/mem_cached_page.cpp#function:eloqstore::IndexPageIter::DecodeEntry	map	fkv_buf:core
+src/storage/mem_cached_page.cpp#function:eloqstore::IndexPageIter::IndexPageIter	map	fkv_buf:core
+src/storage/mem_cached_page.cpp#function:eloqstore::IndexPageIter::Invalidate	map	fkv_buf:core
+src/storage/mem_cached_page.cpp#function:eloqstore::IndexPageIter::ParseNextKey	map	fkv_buf:core
+src/storage/mem_cached_page.cpp#function:eloqstore::IndexPageIter::PeekNextKey	map	fkv_buf:core
+src/storage/mem_cached_page.cpp#function:eloqstore::IndexPageIter::Seek	map	fkv_buf:core
+src/storage/mem_cached_page.cpp#function:eloqstore::MemCachedPage::ContentLength	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/mem_cached_page.cpp#function:eloqstore::MemCachedPage::Deque	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/mem_cached_page.cpp#function:eloqstore::MemCachedPage::DequeNext	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/mem_cached_page.cpp#function:eloqstore::MemCachedPage::EnqueNext	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/mem_cached_page.cpp#function:eloqstore::MemCachedPage::IsPointingToLeaf	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/mem_cached_page.cpp#function:eloqstore::MemCachedPage::RestartNum	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/mem_cached_page.cpp#function:eloqstore::MemCachedPage::String	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::EffectiveBufferPoolLimitBytes	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::AllocPage	ignore	rev-41: 用户态 buffer pool 页槽分配（free list + Evict + pinned 回退），Rust 无页槽池，页读直接 io.read_page（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::EnqueuePage	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::Evict	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::FindPage	ignore	rev-41: buffer pool swizzle/pin/waiting 页查找；Rust 由 snapshot.data_tbl().file_page_id + io.read_page 直读（fkv_task_read/src/lib.rs:268），缓存命中走 IndexCache（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::FindRoot	map	fkv_mapping:core
+src/storage/page_manager.cpp#function:eloqstore::PageManager::FinishIo	ignore	rev-41: 页读完成后的 swizzle / cached_pages_ / LRU 登记；Rust 无 MemCachedPage 对象与 swizzle 表（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::FreeMappingSnapshot	ignore	sto-59: 仅 PooledFilePages 回收（data_append_mode=false）与 mapping_snapshots_ 摘链；Rust 恒 append（文件页不复用），快照生命周期由 SnapshotRegistry 弱引用承担（fkv_mapping/src/snapshot.rs:124）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::FreePage	ignore	rev-41: 归还 buffer pool 页槽（free_head_ 链表）；Rust 无页槽池（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::GetBufferPoolLimit	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::GetBufferPoolUsed	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::GetComparator	ignore	cpp-accessor: 从注入的 AsyncIoManager options 返回 comparator；fkv 固定默认字节序 comparator（fkv_btree/src/comparator.rs:1），无 PageManager 访问器与注入点
+src/storage/page_manager.cpp#function:eloqstore::PageManager::InstallEmptySnapshot	ignore	cpp-dead: C++ 无调用点（仅 docs/architecture/06-persistence-and-recovery.md:70 提及）；Rust 空表由 Store::open_empty 懒创建（fkv_store/src/state.rs:127），不预写空 manifest
+src/storage/page_manager.cpp#function:eloqstore::PageManager::InstallExternalSnapshot	map	fkv_mapping:core
+src/storage/page_manager.cpp#function:eloqstore::PageManager::IoMgr	ignore	cpp-accessor: 返回 io_manager_ 成员；Rust Store 直接持有 io 字段（fkv_store/src/lib.rs:259），无访问器对应
+src/storage/page_manager.cpp#function:eloqstore::PageManager::IsFull	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::MakeCowRoot	map	fkv_mapping:core
+src/storage/page_manager.cpp#function:eloqstore::PageManager::MapperArena	ignore	cpp-accessor: 返回 &mapping_arena_ 成员；arena 本体（Acquire/Release/Extend→chunk.rs）已 done，Rust 无 PageManager 容器，分配器由 mapper 直接持有
+src/storage/page_manager.cpp#function:eloqstore::PageManager::MapperChunkArena	ignore	cpp-accessor: 返回 &mapping_chunk_arena_ 成员；chunk arena 本体已 done（fkv_mapping/src/chunk.rs），Rust 无 PageManager 容器
+src/storage/page_manager.cpp#function:eloqstore::PageManager::Options	ignore	cpp-accessor: 返回 io_manager_->options_；Rust Store 直接持有配置字段（fkv_store/src/lib.rs），无访问器对应
+src/storage/page_manager.cpp#function:eloqstore::PageManager::PageManager	ignore	rev-41: 仅初始化 buffer pool 链表/页槽预留与 RootMetaMgr；Rust Store::new 建 io/config/表状态容器，无页槽池（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::RecyclePage	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::RootMetaManager	ignore	cpp-accessor: 返回 &root_meta_mgr_ 成员；表级缓存/字节预算语义由 fkv_store table_map + evict_over_root_meta 实现（fkv_store/src/state.rs:206，测试 root_meta_budget.rs），无管理器对象访问器
+src/storage/page_manager.cpp#function:eloqstore::PageManager::SeekIndex	map	fkv_mapping:core
+src/storage/page_manager.cpp#function:eloqstore::PageManager::Shutdown	ignore	rev-41: 拆 buffer pool（cached_pages_/链表）+ ReleaseMappers；Rust 以 Drop 与 evict_table/reset_table_li 释放表状态，无进程级 Shutdown 入口（table_state_cleanup.rs:17）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::TryRecycleCachedPage	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::UpdateRoot	map	fkv_mapping:core
+src/storage/page_manager.cpp#function:eloqstore::RootMetaBytes	map	fkv_mapping:core
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::AddShard	map	fkv_runtime:engine
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::ArchiveCrond	map	fkv_runtime:engine
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::Crond	map	fkv_runtime:engine
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::Interval	map	fkv_runtime:engine
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::OnArchiveDone	map	fkv_runtime:engine
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::RemoveShard	map	fkv_runtime:engine
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::Start	map	fkv_runtime:engine
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::Stop	map	fkv_runtime:engine
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::Submit	map	fkv_runtime:engine
+src/tasks/archive_crond.cpp#function:eloqstore::ArchiveCrond::Wait	map	fkv_runtime:engine
+src/tasks/attach_shard_task.cpp#function:eloqstore::AttachShardTask::Attach	ignore	sto-61b: 单进程多 DS shard 托管不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/detach_shard_task.cpp#function:eloqstore::DetachShardTask::Detach	ignore	sto-61b: 单进程多 DS shard 托管不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task.cpp#function:eloqstore::Comp	ignore	cpp-global: Options()->comparator_；fkv 只支持默认字节序比较器，comparator 不迁移（fkv_config 模块文档「未迁移字段」）
+src/tasks/task.cpp#function:eloqstore::DecodeOverflowPointers	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::GetLargeValue	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::GetLargeValueContiguous	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::GetOverflowValue	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::IoMgr	ignore	cpp-global: shard->IndexManager()->IoMgr() 全局访问器；Rust 以 PageIo 参数显式传入（fkv_task_read/src/lib.rs:151）
+src/tasks/task.cpp#function:eloqstore::KvTask::FinishIo	ignore	cpp-coroutine: inflight_io_ 递减并在归零时 Resume；Rust IO future 完成即唤醒，无手动完成回调
+src/tasks/task.cpp#function:eloqstore::KvTask::Resume	ignore	cpp-coroutine: Blocked 任务重新入 ready 环；Rust future 由 waker 唤醒，无手动 Resume
+src/tasks/task.cpp#function:eloqstore::KvTask::WaitIo	ignore	cpp-coroutine: status=BlockedIO 循环 Yield；Rust 单次 await 完成，无显式阻塞状态机
+src/tasks/task.cpp#function:eloqstore::KvTask::WaitIoResult	ignore	cpp-coroutine: inflight_io_ 计数 + Yield 等待后读 io_res_；Rust 直接 await IO future 取结果，无共享 io_res_ 字段
+src/tasks/task.cpp#function:eloqstore::KvTask::Yield	ignore	cpp-coroutine: boost::context main_/coro_ 手工切换；Rust 用 await/yield_now 交还执行器（fkv_task_read/src/lib.rs:83-95）
+src/tasks/task.cpp#function:eloqstore::KvTask::YieldToLowPQ	ignore	cpp-coroutine: 低优先环 Enqueue + main_.resume()；Rust 低优先为独立通道，按时间片插一条低优先（event_loop.rs:132-135，priority.rs 覆盖）
+src/tasks/task.cpp#function:eloqstore::LoadDataPage	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::LoadDataPageForUpdate	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::LoadDataPageStorage	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::LoadOverflowPage	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::LoadPage	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::MaybeYield	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::Mutex::Lock	ignore	cpp-coroutine: WaitingZone 排队 + Yield；Rust 无协程 Mutex，FD 缓存线程独占（fkv_io_compio/src/lib.rs:167-180）
+src/tasks/task.cpp#function:eloqstore::Mutex::Unlock	ignore	cpp-coroutine: 置 unlocked + WakeOne；Rust 无对应锁与唤醒路径
+src/tasks/task.cpp#function:eloqstore::Options	ignore	cpp-global: eloq_store 单例的 Option 访问器；Rust 配置经 ShardConfig/StoreCfg 显式注入（fkv_shard/src/lifecycle.rs:378）
+src/tasks/task.cpp#function:eloqstore::ResolveValueOrMetadata	map	fkv_shard:engine
+src/tasks/task.cpp#function:eloqstore::ThdDsShard	ignore	cpp-thread-local: 多 DS shard 身份访问器；单进程多 DS 托管已 scope-out（sto-61b），Rust 单 attach 身份
+src/tasks/task.cpp#function:eloqstore::ThdTask	ignore	cpp-thread-local: shard->running_ 线程局部；Rust 无全局当前任务，ShardState/Envelope 显式传参
+src/tasks/task.cpp#function:eloqstore::ThdTerm	ignore	cpp-thread-local: 运行任务 term 线程局部；Rust 在 Envelope/Store 显式保存 term（fkv_store/tests/term_bump.rs）
+src/tasks/task.cpp#function:eloqstore::WaitingSeat::Wait	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task.cpp#function:eloqstore::WaitingSeat::Wake	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task.cpp#function:eloqstore::WaitingZone::Empty	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task.cpp#function:eloqstore::WaitingZone::PopFront	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task.cpp#function:eloqstore::WaitingZone::PushBack	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task.cpp#function:eloqstore::WaitingZone::Wait	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task.cpp#function:eloqstore::WaitingZone::WakeAll	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task.cpp#function:eloqstore::WaitingZone::WakeN	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task.cpp#function:eloqstore::WaitingZone::WakeOne	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::AddExternalTask	ignore	cpp-pool: 预热外部任务计数（prewarm_task.cpp:45）；Rust 预热是低优先 Request，在飞由通道与请求生命周期自然约束（fkv_runtime/src/prewarm.rs）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::FinishExternalTask	ignore	cpp-pool: 预热外部任务计数回收（prewarm_task.cpp:55）；Rust 预热请求完成后随 future 释放，无外部任务注册
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::FreeTask	ignore	cpp-pool: 归还任务置 Idle 并链回 free list；Rust future/JoinHandle 完成即 Drop，写额度由 finish_write 释放（fkv_shard/src/write/finish.rs:62）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::GetAttachShardTask	ignore	sto-61b: 单进程多 DS shard 托管不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::GetBackgroundWrite	ignore	cpp-pool: BackgroundWrite 对象池；Rust 写路径统一走 WriteGate，无独立后台写任务对象（fkv_shard/src/write_gate.rs:38）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::GetBatchWriteTask	ignore	cpp-pool: 池取任务 + num_active_write_ 额度；Rust 由 WriteGate::take_next 做同分区 FIFO + 全局 max_write_concurrency（write_gate.rs:93-120）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::GetDetachShardTask	ignore	sto-61b: 单进程多 DS shard 托管不做 1:1（COMPAT_BASELINE 范围与排除项）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::GetListObjectTask	ignore	cpp-pool: ListObjectTask 对象池；Rust ListObject 是 Request 变体，低优先通道直接分发（sender.rs:24-40）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::GetListStandbyPartitionTask	ignore	cpp-pool: ListStandbyPartitionTask 对象池；Rust ListStandbyPartition 为 Request 变体直接分发（fkv_api/src/lib.rs:194）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::GetReadTask	ignore	cpp-pool: ReadTask 对象池；Rust 每条读 spawn 独立 compio future，在飞上限 MAX_READ_IN_FLIGHT=128（lib.rs:43, read/flight.rs:270）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::GetReopenTask	ignore	cpp-pool: ReopenTask 对象池 + Reset(tbl)；Rust reopen 由 ReopenQueue 延迟堆管理（reopen.rs:34-80），请求即任务
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::GetScanTask	ignore	cpp-pool: ScanTask 对象池；Rust scan 归入只读请求走同一读窗口（dispatch.rs:75 is_read_op 含 Scan）
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::NumActive	ignore	cpp-pool: 池活跃计数用于空闲轮询与预热节流（storage/shard.cpp:128,1557, prewarm_task.cpp:235）；Rust 事件循环阻塞等待通道（event_loop.rs wait_event），无轮询空闲判定
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::SetPoolSizesForTest	ignore	cpp-pool/test-helper: 静态池大小只被 C++ 测试调用（tests/batch_write.cpp:347）；Rust 并发上限由 ShardConfig::max_write_concurrency / MAX_READ_IN_FLIGHT 直接控制
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::Shutdown	map	fkv_shard:engine
+src/tasks/task_manager.cpp#function:eloqstore::TaskManager::TaskManager	ignore	cpp-pool: 9 类任务对象池与池默认大小；Rust 无 TaskManager，读请求 spawn future（read.rs:158）、写请求进 WriteGate（write_gate.rs:41）
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::AddPage	map	fkv_task_write:engine
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::CanAppend	ignore	cpp-form: 固定缓冲的连续追加约束（offset == next_offset / 同 file_id / 容量，src/tasks/write_buffer_aggregator.cpp:54-78）；Rust 页写无连续 offset 约束，连续段合并由 write_page_li 排序后完成（crate/io/fkv_io_compio/src/page_io.rs:126-146）
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::HasBuffer	ignore	cpp-accessor: buffer_ 守卫（src/tasks/write_buffer_aggregator.cpp:26-29）；Rust PendingWrite 不持缓冲句柄，缓冲由 IO 层 BufPool 按长度分桶（crate/io/fkv_io_compio/src/buf.rs；rev-41）
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::HasData	ignore	cpp-form: buffer_ != nullptr && used_ > 0 查询（src/tasks/write_buffer_aggregator.cpp:31-34）；Rust 无 buffer_ 概念，空批早退内联在 PendingWrite::flush（crate/engine/fkv_task_write/src/batch.rs:126-128），无独立查询 API/测试
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::Reset	ignore	cpp-lifecycle: 清空聚合器字段（src/tasks/write_buffer_aggregator.cpp:12-24）；Rust 每个写批新建 PendingWrite::default()（crate/engine/fkv_task_write/src/batch.rs:406），flush 内已清 slot_map/bytes（batch.rs:129-131），无独立 Reset
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::SetBuffer	ignore	cpp-form: 绑定 AcquireWriteBuffer 取出的池缓冲与 buffer_index/use_fixed（src/tasks/write_buffer_aggregator.cpp:36-52）；Rust 写页各自持有 Vec 交 write_page_li，IO 层按 (file_id, page_index) 排序合并（crate/io/fkv_io_compio/src/page_io.rs:110-146），无任务级 SetBuffer
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::ShouldFlush	map	fkv_task_write:engine
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::TakeBatch	map	fkv_task_write:engine
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::TryReserve	ignore	cpp-form: 在池缓冲内 bump 指针并 memcpy 目标（src/tasks/write_buffer_aggregator.cpp:80-92）；Rust 无裸指针预留，页字节由 builder 产出 Vec 后进 PendingWrite::push（crate/engine/fkv_task_write/src/data.rs:140 / batch.rs:89-99）
+src/tasks/write_buffer_aggregator.cpp#function:eloqstore::WriteBufferAggregator::WriteBufferAggregator	ignore	cpp-ctor: 仅保存 write_buffer_size（src/tasks/write_buffer_aggregator.cpp:7-10）；该旋钮在 Rust 解析不生效（COMPAT_BASELINE 性能旋钮清单），批内预算固定 PENDING_WRITE_BUDGET=1 MiB（crate/engine/fkv_task_write/src/batch.rs:74）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::Clear	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::ConcurrencyTester	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::CurrentTimestamp	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::DebugSegment	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::ExecRead	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::ExecWrite	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::HasWriting	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::Init	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::Partition::FinishWrite	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::Partition::FinishedRounds	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::Partition::IsWriting	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::Run	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::SendWrite	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::VerifyRead	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ConcurrencyTester::Wake	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::DecodeKey	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::DecodeValue	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::EncodeKey	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::EncodeValue	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::FormatEntries	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::Key	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::Finish	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::FreeMapping	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::ManifestContent	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::ManifestVerifier	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::NewMapping	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::RandChoose	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::Size	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::Snapshot	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::UpdateMapping	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::ManifestVerifier::Verify	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::CheckKey	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::Clean	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::DataSet	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::Delete	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::ExecWrite	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::Floor	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::MapVerifier	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::Read	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::Scan	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::SetAutoClean	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::SetAutoValidate	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::SetMaxTTL	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::SetStore	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::SetTimestamp	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::SetValueSize	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::SwitchDataSet	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::Truncate	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::Upsert	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::Validate	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::WriteRnd	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::MapVerifier::~MapVerifier	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::Scan	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/test_utils.cpp#function:test_util::Value	ignore	test-utils: C++ 测试辅助层不迁移，fkv 用自身 testkit（COMPAT_BASELINE 范围与排除项）
+src/types.cpp#function:eloqstore::TableIdent::FromString	map	fkv_types:foundation
+src/types.cpp#function:eloqstore::TableIdent::IsValid	map	fkv_types:foundation
+src/types.cpp#function:eloqstore::TableIdent::ShardIndex	map	fkv_types:foundation
+src/types.cpp#function:eloqstore::TableIdent::StorePath	map	fkv_types:foundation
+src/types.cpp#function:eloqstore::TableIdent::StorePathIndex	map	fkv_types:foundation
+src/types.cpp#function:eloqstore::TableIdent::ToString	map	fkv_types:foundation
+src/types.cpp#function:eloqstore::WriteDataEntry::RecycleLargeValue	ignore	rev-44: IoStringBuffer 注册内存 fragment 归还不做 1:1（COMPAT_BASELINE 范围与排除项）；Rust large value 走 FixedBuffer/连续切片，注册槽由 FixedBuffer Drop 归还（crate/io/fkv_io/src/lib.rs:443），managed 路径见 crate/core/fkv_large/src/managed.rs，测试 crate/core/fkv_large/tests/managed.rs
+src/types.cpp#function:eloqstore::WriteDataEntry::WriteDataEntry	map	fkv_types:foundation
+src/types.cpp#function:eloqstore::WriteDataEntry::operator<	map	fkv_types:foundation
+src/types.cpp#function:eloqstore::tid	map	fkv_types:foundation

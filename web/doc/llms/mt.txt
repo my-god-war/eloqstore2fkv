@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/mt/README.md) : Oħloq u uri saff popup b'buttuna mill-qrib
+[Code](../../src/webc/Code/i18n/mt/README.md) : buttuna tal-kodiċi
+[Copy](../../src/webc/Copy/i18n/mt/README.md) : Ikkopja t-test fil-clipboard
+[Edit](../../src/webc/Edit/i18n/mt/README.md) : buttuna editja
+[I18n](../../src/webc/I18n/i18n/mt/README.md) : Buttuni u twieqi pop-up biex taqleb il-lingwi tal-interface
+[Nav](../../src/webc/Nav/i18n/mt/README.md) : Barra tan-navigazzjoni ta' fuq li tikkollassa jew tespandi awtomatikament meta l-paġna tiskrollja
+[NavL](../../src/webc/NavL/i18n/mt/README.md) : Awtomatikament taqleb il-menu tan-navigazzjoni u l-buttuna tar-ritorn
+[NavMenu](../../src/webc/NavMenu/i18n/mt/README.md) : Menu tan-navigazzjoni adattat għal daqsijiet differenti tal-iskrin
+[Side](../../src/webc/Side/i18n/mt/README.md) : Pannelli tal-kxaxen li jiżżerżqu 'l barra mill-ġenb
+[Toc](../../src/webc/Toc/i18n/mt/README.md) : Komponent tan-Navigazzjoni tad-Direttorju
+[Btn](../../src/webc/Btn/i18n/mt/README.md) : Buttuna ordinarja u buttuna tonda tal-ikona
+[Card](../../src/webc/Card/i18n/mt/README.md) : Kard tal-kapsula bil-vleġġa tal-lemin murija f'sospensjoni
+[H1Txt](../../src/webc/H1Txt/i18n/mt/README.md) : Titolu u deskrizzjoni tat-tessut
+[Ing](../../src/webc/Ing/i18n/mt/README.md) : Indikatur tal-istatus tat-tagħbija jew tal-ipproċessar
+[Lg](../../src/webc/Lg/i18n/mt/README.md) : Sfond tal-ħġieġ matt u effett ta 'enfasi tat-tarf
+[MdCss](../../src/webc/MdCss/i18n/mt/README.md) : Stili tipografiċi ottimizzati għall-esperjenza tal-qari
+[NavALi](../../src/webc/NavALi/i18n/mt/README.md) : Stil tal-lista tal-links tal-bar tan-navigazzjoni
+[O](../../src/webc/O/i18n/mt/README.md) : Iġbed logo b'tikka vojta quddiem l-element
+[Toast](../../src/webc/Toast/i18n/mt/README.md) : Tieqa pop-up fil-pront fit-tarf tal-paġna
+[Back](../../src/webc/Back/i18n/mt/README.md) : buttuna lura
+[Box](../../src/webc/Box/i18n/mt/README.md) : Oħloq u uri saff popup
+[Md](../../src/webc/Md/i18n/mt/README.md) : Analiżi u tirrendi b'mod sikur it-test ta' Markdown għal HTML.
+[Pophover](../../src/webc/Pophover/i18n/mt/README.md) : bużżieqa f'wiċċ l-ilma fil-pront
+[Scroll](../../src/webc/Scroll/i18n/mt/README.md) : iscroll bar virtwali
+[eloqstore2fkv](../mt/doc/README.md)
+[Proċess ta' verifika](../mt/doc/workflow.md)
+[C++ oracle](../mt/doc/oracle.md)
+[Emigra l-ktieb](../mt/doc/ledger.md)
+[Prestazzjoni](../mt/doc/performance.md)
+[Ir-reġistri tar-reviżjoni](../mt/doc/issues.md)
+[Bidla log](../mt/blog/README.md) : Log tal-aġġornament tal-proġett u dħul tal-bidla fil-prestazzjoni u l-kompatibilità
+[2026-11-06: Tabella tal-prestazzjoni tal-paġna ewlenija, espansjoni tal-indikaturi u Paġni](../mt/blog/2026-11-06-homepage-and-metrics.md) : Paragun tal-prestazzjoni tal-paġna tad-dar, espansjoni tal-indikatur tal-evalwazzjoni, Paġni GitHub u blogs b'ħafna lingwi onlajn

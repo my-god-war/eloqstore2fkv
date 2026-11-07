@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/ms/README.md) : Buat dan paparkan lapisan pop timbul dengan butang tutup
+[Code](../../src/webc/Code/i18n/ms/README.md) : butang kod
+[Copy](../../src/webc/Copy/i18n/ms/README.md) : Salin teks ke papan keratan
+[Edit](../../src/webc/Edit/i18n/ms/README.md) : butang edit
+[I18n](../../src/webc/I18n/i18n/ms/README.md) : Butang dan tetingkap timbul untuk menukar bahasa antara muka
+[Nav](../../src/webc/Nav/i18n/ms/README.md) : Bar navigasi teratas yang runtuh atau berkembang secara automatik apabila halaman menatal
+[NavL](../../src/webc/NavL/i18n/ms/README.md) : Tukar menu navigasi dan butang kembali secara automatik
+[NavMenu](../../src/webc/NavMenu/i18n/ms/README.md) : Menu navigasi disesuaikan dengan saiz skrin yang berbeza
+[Side](../../src/webc/Side/i18n/ms/README.md) : Panel laci yang meluncur keluar dari sisi
+[Toc](../../src/webc/Toc/i18n/ms/README.md) : Komponen Navigasi Direktori
+[Btn](../../src/webc/Btn/i18n/ms/README.md) : Butang biasa dan butang ikon bulat
+[Card](../../src/webc/Card/i18n/ms/README.md) : Kad kapsul dengan anak panah kanan dipaparkan dalam penggantungan
+[H1Txt](../../src/webc/H1Txt/i18n/ms/README.md) : Tajuk dan penerangan tekstur
+[Ing](../../src/webc/Ing/i18n/ms/README.md) : Penunjuk status pemuatan atau pemprosesan
+[Lg](../../src/webc/Lg/i18n/ms/README.md) : Latar belakang kaca beku dan kesan sorotan tepi
+[MdCss](../../src/webc/MdCss/i18n/ms/README.md) : Gaya tipografi dioptimumkan untuk pengalaman membaca
+[NavALi](../../src/webc/NavALi/i18n/ms/README.md) : Gaya senarai pautan bar navigasi
+[O](../../src/webc/O/i18n/ms/README.md) : Lukis logo titik berongga di hadapan elemen
+[Toast](../../src/webc/Toast/i18n/ms/README.md) : Tetingkap pop timbul gesaan di tepi halaman
+[Back](../../src/webc/Back/i18n/ms/README.md) : butang belakang
+[Box](../../src/webc/Box/i18n/ms/README.md) : Buat dan paparkan lapisan pop timbul
+[Md](../../src/webc/Md/i18n/ms/README.md) : Menghuraikan dan memaparkan teks Markdown dengan selamat kepada HTML.
+[Pophover](../../src/webc/Pophover/i18n/ms/README.md) : gesaan gelembung terapung
+[Scroll](../../src/webc/Scroll/i18n/ms/README.md) : bar skrol maya
+[eloqstore2fkv](../ms/doc/README.md)
+[Proses pengesahan](../ms/doc/workflow.md)
+[C++ oracle](../ms/doc/oracle.md)
+[Berhijrah lejar](../ms/doc/ledger.md)
+[Prestasi](../ms/doc/performance.md)
+[Semak rekod](../ms/doc/issues.md)
+[Tukar log](../ms/blog/README.md) : Log kemas kini projek dan entri perubahan prestasi dan keserasian
+[2026-11-06: Jadual prestasi halaman utama, pengembangan penunjuk dan Halaman](../ms/blog/2026-11-06-homepage-and-metrics.md) : Perbandingan prestasi halaman utama, pengembangan penunjuk penilaian, Halaman GitHub dan blog berbilang bahasa dalam talian

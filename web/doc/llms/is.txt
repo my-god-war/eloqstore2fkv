@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/is/README.md) : Búðu til og sýndu sprettiglugga með lokahnappi
+[Code](../../src/webc/Code/i18n/is/README.md) : kóða hnappinn
+[Copy](../../src/webc/Copy/i18n/is/README.md) : Afritaðu texta á klemmuspjald
+[Edit](../../src/webc/Edit/i18n/is/README.md) : breyta hnappi
+[I18n](../../src/webc/I18n/i18n/is/README.md) : Hnappar og sprettigluggar til að skipta um tungumál viðmóts
+[Nav](../../src/webc/Nav/i18n/is/README.md) : Efsta leiðsögustikan sem hrynur sjálfkrafa saman eða stækkar þegar síðan flettir
+[NavL](../../src/webc/NavL/i18n/is/README.md) : Skiptu sjálfkrafa um leiðsöguvalmynd og afturhnapp
+[NavMenu](../../src/webc/NavMenu/i18n/is/README.md) : Leiðsöguvalmynd aðlagaður mismunandi skjástærðum
+[Side](../../src/webc/Side/i18n/is/README.md) : Skúffuplötur sem renna út frá hliðinni
+[Toc](../../src/webc/Toc/i18n/is/README.md) : Listaleiðsöguhluti
+[Btn](../../src/webc/Btn/i18n/is/README.md) : Venjulegur hnappur og hringlaga táknhnappur
+[Card](../../src/webc/Card/i18n/is/README.md) : Hylkisspjald með hægri ör sem birtist í dreifu
+[H1Txt](../../src/webc/H1Txt/i18n/is/README.md) : Áferðarheiti og lýsing
+[Ing](../../src/webc/Ing/i18n/is/README.md) : Vísir um hleðslu eða vinnslustöðu
+[Lg](../../src/webc/Lg/i18n/is/README.md) : Bakgrunnur úr matt gleri og hápunktur á brún
+[MdCss](../../src/webc/MdCss/i18n/is/README.md) : Leturgerð stíll fínstilltur fyrir lestrarupplifun
+[NavALi](../../src/webc/NavALi/i18n/is/README.md) : Stíll stýristikunnar tenglalista
+[O](../../src/webc/O/i18n/is/README.md) : Teiknaðu holur punktur lógó fyrir framan þáttinn
+[Toast](../../src/webc/Toast/i18n/is/README.md) : Hvetjandi sprettigluggi á jaðri síðunnar
+[Back](../../src/webc/Back/i18n/is/README.md) : afturhnappur
+[Box](../../src/webc/Box/i18n/is/README.md) : Búðu til og sýndu sprettigluggalag
+[Md](../../src/webc/Md/i18n/is/README.md) : Þjálfa og skila Markdown texta á öruggan hátt í HTML.
+[Pophover](../../src/webc/Pophover/i18n/is/README.md) : fljótandi kúla hvetja
+[Scroll](../../src/webc/Scroll/i18n/is/README.md) : sýndarskrollslá
+[eloqstore2fkv](../is/doc/README.md)
+[Staðfestingarferli](../is/doc/workflow.md)
+[C++ oracle](../is/doc/oracle.md)
+[Flytja höfuðbók](../is/doc/ledger.md)
+[Afköst](../is/doc/performance.md)
+[Farið yfir skrár](../is/doc/issues.md)
+[Breyta log](../is/blog/README.md) : Verkefnauppfærsluskrá og færsla um breytingar á frammistöðu og eindrægni
+[2026-11-06: Frammistöðutafla heimasíða, stækkun vísis og síður](../is/blog/2026-11-06-homepage-and-metrics.md) : Samanburður á frammistöðu heimasíðunnar, stækkun matsvísa, GitHub síður og fjöltungumál blogg á netinu

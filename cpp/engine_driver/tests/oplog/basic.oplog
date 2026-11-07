@@ -1,0 +1,6 @@
+# 纯写 / 覆盖 / 删除的混合 op log
+put a A 1
+put b B 1
+put a A2 2
+del b 3
+put c C 3

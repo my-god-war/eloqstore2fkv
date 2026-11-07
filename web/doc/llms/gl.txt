@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/gl/README.md) : Crea e mostra unha capa emerxente cun botón de pechar
+[Code](../../src/webc/Code/i18n/gl/README.md) : botón de código
+[Copy](../../src/webc/Copy/i18n/gl/README.md) : Copiar texto no portapapeis
+[Edit](../../src/webc/Edit/i18n/gl/README.md) : botón editar
+[I18n](../../src/webc/I18n/i18n/gl/README.md) : Botóns e ventás emerxentes para cambiar o idioma da interface
+[Nav](../../src/webc/Nav/i18n/gl/README.md) : Barra de navegación superior que se contrae ou se expande automaticamente cando se despraza a páxina
+[NavL](../../src/webc/NavL/i18n/gl/README.md) : Cambia automaticamente o menú de navegación e o botón de retorno
+[NavMenu](../../src/webc/NavMenu/i18n/gl/README.md) : Menú de navegación adaptado a diferentes tamaños de pantalla
+[Side](../../src/webc/Side/i18n/gl/README.md) : Paneis de caixóns que se deslizan cara a fóra do lado
+[Toc](../../src/webc/Toc/i18n/gl/README.md) : Compoñente de navegación do directorio
+[Btn](../../src/webc/Btn/i18n/gl/README.md) : Botón ordinario e botón de icona redonda
+[Card](../../src/webc/Card/i18n/gl/README.md) : Tarxeta da cápsula coa frecha cara á dereita mostrada en suspensión
+[H1Txt](../../src/webc/H1Txt/i18n/gl/README.md) : Título e descrición da textura
+[Ing](../../src/webc/Ing/i18n/gl/README.md) : Indicador de estado de carga ou procesamento
+[Lg](../../src/webc/Lg/i18n/gl/README.md) : Fondo de vidro esmerilado e efecto de resaltado de bordo
+[MdCss](../../src/webc/MdCss/i18n/gl/README.md) : Estilos tipográficos optimizados para a experiencia lectora
+[NavALi](../../src/webc/NavALi/i18n/gl/README.md) : Estilo de lista de ligazóns da barra de navegación
+[O](../../src/webc/O/i18n/gl/README.md) : Debuxa un logotipo de punto oco diante do elemento
+[Toast](../../src/webc/Toast/i18n/gl/README.md) : Solicita unha ventá emerxente no bordo da páxina
+[Back](../../src/webc/Back/i18n/gl/README.md) : botón atrás
+[Box](../../src/webc/Box/i18n/gl/README.md) : Crear e mostrar unha capa emerxente
+[Md](../../src/webc/Md/i18n/gl/README.md) : Analiza e renderiza de forma segura o texto de Markdown en HTML.
+[Pophover](../../src/webc/Pophover/i18n/gl/README.md) : aviso de burbulla flotante
+[Scroll](../../src/webc/Scroll/i18n/gl/README.md) : barra de desprazamento virtual
+[eloqstore2fkv](../gl/doc/README.md)
+[Proceso de verificación](../gl/doc/workflow.md)
+[C++ oracle](../gl/doc/oracle.md)
+[Migrar libro](../gl/doc/ledger.md)
+[Rendemento](../gl/doc/performance.md)
+[Revisar rexistros](../gl/doc/issues.md)
+[Cambio de rexistro](../gl/blog/README.md) : Rexistro de actualización do proxecto e entrada de cambios de rendemento e compatibilidade
+[2026-11-06: táboa de rendemento da páxina de inicio, expansión do indicador e Páxinas](../gl/blog/2026-11-06-homepage-and-metrics.md) : Comparación do rendemento da páxina de inicio, expansión do indicador de avaliación, páxinas de GitHub e blogs multilingües en liña

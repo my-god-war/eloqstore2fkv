@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/th/README.md) : สร้างและแสดงเลเยอร์ป๊อปอัปด้วยปุ่มปิด
+[Code](../../src/webc/Code/i18n/th/README.md) : ปุ่มรหัส
+[Copy](../../src/webc/Copy/i18n/th/README.md) : คัดลอกข้อความไปยังคลิปบอร์ด
+[Edit](../../src/webc/Edit/i18n/th/README.md) : ปุ่มแก้ไข
+[I18n](../../src/webc/I18n/i18n/th/README.md) : ปุ่มและหน้าต่างป๊อปอัปสำหรับเปลี่ยนภาษาอินเทอร์เฟซ
+[Nav](../../src/webc/Nav/i18n/th/README.md) : แถบนำทางด้านบนที่จะยุบหรือขยายโดยอัตโนมัติเมื่อเลื่อนหน้า
+[NavL](../../src/webc/NavL/i18n/th/README.md) : สลับเมนูนำทางและปุ่มย้อนกลับโดยอัตโนมัติ
+[NavMenu](../../src/webc/NavMenu/i18n/th/README.md) : เมนูนำทางปรับให้เหมาะกับขนาดหน้าจอที่แตกต่างกัน
+[Side](../../src/webc/Side/i18n/th/README.md) : แผงลิ้นชักที่เลื่อนออกจากด้านข้าง
+[Toc](../../src/webc/Toc/i18n/th/README.md) : ส่วนประกอบการนำทางไดเรกทอรี
+[Btn](../../src/webc/Btn/i18n/th/README.md) : ปุ่มธรรมดาและปุ่มไอคอนกลม
+[Card](../../src/webc/Card/i18n/th/README.md) : การ์ดแคปซูลที่มีลูกศรขวาแสดงอยู่ในระบบแขวน
+[H1Txt](../../src/webc/H1Txt/i18n/th/README.md) : ชื่อพื้นผิวและคำอธิบาย
+[Ing](../../src/webc/Ing/i18n/th/README.md) : ตัวบ่งชี้สถานะการโหลดหรือการประมวลผล
+[Lg](../../src/webc/Lg/i18n/th/README.md) : พื้นหลังกระจกฝ้าและเอฟเฟกต์ไฮไลต์ขอบ
+[MdCss](../../src/webc/MdCss/i18n/th/README.md) : รูปแบบตัวอักษรที่ปรับให้เหมาะกับประสบการณ์การอ่าน
+[NavALi](../../src/webc/NavALi/i18n/th/README.md) : รูปแบบรายการลิงก์แถบนำทาง
+[O](../../src/webc/O/i18n/th/README.md) : วาดโลโก้จุดกลวงที่ด้านหน้าองค์ประกอบ
+[Toast](../../src/webc/Toast/i18n/th/README.md) : หน้าต่างป๊อปอัปแจ้งที่ขอบของหน้า
+[Back](../../src/webc/Back/i18n/th/README.md) : ปุ่มย้อนกลับ
+[Box](../../src/webc/Box/i18n/th/README.md) : สร้างและแสดงเลเยอร์ป๊อปอัป
+[Md](../../src/webc/Md/i18n/th/README.md) : แยกวิเคราะห์และแสดงข้อความ Markdown เป็น HTML ได้อย่างปลอดภัย
+[Pophover](../../src/webc/Pophover/i18n/th/README.md) : พรอมต์ฟองลอย
+[Scroll](../../src/webc/Scroll/i18n/th/README.md) : แถบเลื่อนเสมือน
+[eloqstore2fkv](../th/doc/README.md)
+[กระบวนการตรวจสอบ](../th/doc/workflow.md)
+[C++ oracle](../th/doc/oracle.md)
+[ย้ายบัญชีแยกประเภท](../th/doc/ledger.md)
+[ประสิทธิภาพ](../th/doc/performance.md)
+[ตรวจสอบบันทึก](../th/doc/issues.md)
+[บันทึกการเปลี่ยนแปลง](../th/blog/README.md) : บันทึกการอัปเดตโครงการและรายการการเปลี่ยนแปลงประสิทธิภาพและความเข้ากันได้
+[06-11-2026: ตารางประสิทธิภาพของโฮมเพจ การขยายตัวบ่งชี้ และเพจ](../th/blog/2026-11-06-homepage-and-metrics.md) : การเปรียบเทียบประสิทธิภาพของโฮมเพจ การขยายตัวบ่งชี้การประเมินผล หน้า GitHub และบล็อกออนไลน์หลายภาษา
