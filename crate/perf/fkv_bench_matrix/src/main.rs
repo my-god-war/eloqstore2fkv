@@ -2078,26 +2078,25 @@ fn run_matrix(
   })
 }
 
-/// 表格单元：该阶段的墙钟耗时（毫秒），口径与 redb 的 benchmark 表一致
-/// （redb 表也是每阶段耗时，不是吞吐 + 延时）。
-fn fmt_elapsed(result: &PhaseResult) -> String {
-  let ms = result.duration.as_secs_f64() * 1000.0;
-  if ms >= 100.0 {
-    format!("{ms:.0}ms")
-  } else if ms >= 1.0 {
-    format!("{ms:.1}ms")
+/// 表格单元：该阶段的操作数（ops/s）。
+///
+/// 单位不逐格写（表下一行统一说明），避免一列里混着 `ms` / `ops/s` 两种量纲。
+fn fmt_ops(result: &PhaseResult) -> String {
+  let value = result.throughput;
+  if value >= 1.0 {
+    format!("{value:.0}")
   } else {
-    format!("{ms:.2}ms")
+    format!("{value:.2}")
   }
 }
 
-/// 一侧的单元格：没有结果时用备注（`N/A` / 失败原因），否则是耗时；
-/// 两侧都有时给更快的一侧加粗（同 redb 表的 "best in bold"）。
+/// 一侧的单元格：没有结果时用备注（`N/A` / 失败原因），否则是操作数；
+/// 两侧都有时给更快（操作数更大）的一侧加粗。
 fn fmt_phase_cell(result: Option<&PhaseResult>, note: Option<&str>, faster: bool) -> String {
   let Some(result) = result else {
     return note.unwrap_or("N/A").to_owned();
   };
-  let cell = fmt_elapsed(result);
+  let cell = fmt_ops(result);
   if faster { format!("**{cell}**") } else { cell }
 }
 
@@ -2157,18 +2156,18 @@ impl MatrixReport {
       self.config.scan_bytes
     );
     out.push('\n');
-    out.push_str("| phase | EloqStore (C++) | fkv | C++ / fkv |\n");
+    // fkv 是第一列：操作数口径下 ratio = fkv / C++，> 1 表示 fkv 更快。
+    out.push_str("| 阶段 | fkv | EloqStore (C++) | fkv / C++ |\n");
     out.push_str("|---|---:|---:|---:|\n");
     for row in &self.phases {
-      // 耗时口径下 ratio = C++ 耗时 / fkv 耗时，> 1 表示 fkv 更快。
       let faster_side = match (&row.cpp, &row.fkv) {
-        (Some(cpp), Some(fkv)) if cpp.duration != fkv.duration => Some(cpp.duration > fkv.duration),
+        (Some(cpp), Some(fkv)) if cpp.throughput != fkv.throughput => {
+          Some(fkv.throughput > cpp.throughput)
+        }
         _ => None,
       };
       let ratio = match (&row.cpp, &row.fkv) {
-        (Some(cpp), Some(fkv)) if fkv.duration.as_secs_f64() > 0.0 => {
-          Some(cpp.duration.as_secs_f64() / fkv.duration.as_secs_f64())
-        }
+        (Some(cpp), Some(fkv)) if cpp.throughput > 0.0 => Some(fkv.throughput / cpp.throughput),
         _ => None,
       };
       let _ = writeln!(
@@ -2176,14 +2175,14 @@ impl MatrixReport {
         "| {} | {} | {} | {} |",
         row.phase,
         fmt_phase_cell(
-          row.cpp.as_ref(),
-          row.cpp_note.as_deref(),
-          faster_side == Some(false)
-        ),
-        fmt_phase_cell(
           row.fkv.as_ref(),
           row.fkv_note.as_deref(),
           faster_side == Some(true)
+        ),
+        fmt_phase_cell(
+          row.cpp.as_ref(),
+          row.cpp_note.as_deref(),
+          faster_side == Some(false)
         ),
         fmt_ratio(ratio)
       );
@@ -2191,15 +2190,15 @@ impl MatrixReport {
     let _ = writeln!(
       out,
       "| uncompacted size | {} | {} | {} |",
-      size_cell(self.uncompacted_size.cpp),
       size_cell(self.uncompacted_size.fkv),
+      size_cell(self.uncompacted_size.cpp),
       fmt_ratio(self.uncompacted_size.ratio)
     );
     let _ = writeln!(
       out,
       "| compacted size | {} | {} | {} |",
-      size_cell(self.compacted_size.cpp),
       size_cell(self.compacted_size.fkv),
+      size_cell(self.compacted_size.cpp),
       fmt_ratio(self.compacted_size.ratio)
     );
     let cpp_compact = self
@@ -2210,25 +2209,20 @@ impl MatrixReport {
       .compaction
       .fkv_secs
       .map_or_else(|| "N/A".to_owned(), |secs| format!("{secs:.3} s"));
-    let compact_ratio = match (self.compaction.fkv_secs, self.compaction.cpp_secs) {
-      (Some(fkv), Some(cpp)) if cpp > 0.0 => Some(fkv / cpp),
-      _ => None,
-    };
+    // 压实耗时两侧都是近 no-op（0.000 / 0.003 s），比值没有信息量，留 N/A。
     let _ = writeln!(
       out,
-      "| compact wall time | {cpp_compact} | {fkv_compact} | {} |",
-      fmt_ratio(compact_ratio)
+      "| compact wall time | {fkv_compact} | {cpp_compact} | N/A |"
     );
     out.push('\n');
     out.push_str(
-      "> 每格是该阶段的墙钟耗时（同 redb benchmark 表的耗时口径），加粗表示该阶段更快；\n\
-       > `C++ / fkv` = C++ 耗时 / fkv 耗时，> 1 表示 fkv 更快；体积行是 fkv / cpp 字节比。\n\
+      "> 单位：吞吐行为操作数/秒（ops/s），体积行为 MiB；`fkv / C++` > 1 表示 fkv 更快，加粗为更快一侧。\n\
        > `N/A` 表示该引擎没有对应接口；RandomReads 行两侧都用 `--readers N`（单分区）。\n",
     );
     if self.phases.iter().any(|row| row.phase == "len()") {
       out.push_str(
         "> `len()` 两侧都没有 O(1) 计数接口，都是全表扫描计数（C++ 分页物化、fkv 只计数），\n\
-         > 这一行是数键耗时，不能与 redb 表里 0ms 的 O(1) len() 直接比较。\n",
+         > 这一行是每秒数出的键数，不能与 redb 表里 0ms 的 O(1) len() 直接比较。\n",
       );
     }
     if let Some(cpp) = self.compaction.cpp_secs {

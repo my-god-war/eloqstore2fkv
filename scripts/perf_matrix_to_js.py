@@ -42,32 +42,23 @@ THROUGHPUT_PHASES = {
 BAD_RATIO_BELOW = 0.5
 
 
-def fmt_elapsed(secs: float) -> str:
-    """阶段墙钟耗时（毫秒），与 redb benchmark 表的耗时口径一致。"""
-    ms = secs * 1000.0
-    if ms >= 100:
-        return f"{ms:.0f}ms"
-    if ms >= 1:
-        return f"{ms:.1f}ms"
-    return f"{ms:.2f}ms"
+def fmt_ops(result: dict) -> str:
+    """该阶段的操作数/秒；单位不逐格写（表下一行说明）。"""
+    value = result["throughput"]
+    return f"{value:.0f}" if value >= 1 else f"{value:.2f}"
 
 
 def cell(result: dict | None) -> str:
-    if result is None:
-        return "—"
-    return fmt_elapsed(result["duration"])
+    return "—" if result is None else fmt_ops(result)
 
 
-def elapsed_ratio(row: dict) -> float | None:
-    """耗时口径下 ratio = C++ 耗时 / fkv 耗时，> 1 表示 fkv 更快。"""
+def ops_ratio(row: dict) -> float | None:
+    """ratio = fkv 操作数 / C++ 操作数，> 1 表示 fkv 更快。"""
     cpp = row.get("cpp")
     fkv = row.get("fkv")
-    if not cpp or not fkv:
+    if not cpp or not fkv or cpp["throughput"] <= 0:
         return None
-    fkv_secs = fkv["duration"]
-    if fkv_secs <= 0:
-        return None
-    return cpp["duration"] / fkv_secs
+    return fkv["throughput"] / cpp["throughput"]
 
 
 def fmt_bytes(value: int) -> str:
@@ -128,27 +119,28 @@ def build_rows(report: dict) -> list[str]:
         label = zh_label(row["phase"])
         cpp = cell(row.get("cpp"))
         fkv = cell(row.get("fkv"))
-        ratio = elapsed_ratio(row)
+        ratio = ops_ratio(row)
         tone = ""
         if row["phase"] in THROUGHPUT_PHASES and ratio is not None and ratio < BAD_RATIO_BELOW:
             tone = ', "bad"'
+        # fkv 是第一列（与表格 / 网页表头一致）。
         rows.append(
-            f'  ["{label}", "{cpp}", "{fkv}", {fmt_ratio(ratio)}{tone}]'
+            f'  ["{label}", "{fkv}", "{cpp}", {fmt_ratio(ratio)}{tone}]'
         )
 
     for label, key in (("未压实体积", "uncompacted_size"),
                        ("压实后体积", "compacted_size")):
         block = report[key]
         rows.append(
-            f'  ["{label}", "{size_cell(block["cpp"])}", '
-            f'"{size_cell(block["fkv"])}", {fmt_ratio(block.get("ratio"))}]'
+            f'  ["{label}", "{size_cell(block["fkv"])}", '
+            f'"{size_cell(block["cpp"])}", {fmt_ratio(block.get("ratio"))}]'
         )
 
     cpp_secs = report["compaction"].get("cpp_secs")
     fkv_secs = report["compaction"].get("fkv_secs")
-    cpp_cell = "—" if cpp_secs is None else f"{cpp_secs:.3f} s"
     fkv_cell = "—" if fkv_secs is None else f"{fkv_secs:.3f} s"
-    rows.append(f'  ["压实耗时", "{cpp_cell}", "{fkv_cell}", null]')
+    cpp_cell = "—" if cpp_secs is None else f"{cpp_secs:.3f} s"
+    rows.append(f'  ["压实耗时", "{fkv_cell}", "{cpp_cell}", null]')
     return rows
 
 

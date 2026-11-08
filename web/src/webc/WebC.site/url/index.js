@@ -66,17 +66,17 @@ const page = () => {
   table.className = "HomeTable";
   tr_head.append(
     cell("th", "阶段"),
-    cell("th", "C++ EloqStore"),
     cell("th", "Rust fkv"),
-    cell("th", "C++ / fkv")
+    cell("th", "C++ EloqStore"),
+    cell("th", "fkv / C++")
   );
   thead.append(tr_head);
-  for (const [phase, cpp, rust, ratio, tone] of PERF_MATRIX_ROWS) {
+  for (const [phase, fkv, cpp, ratio, tone] of PERF_MATRIX_ROWS) {
     const tr = newEl("tr");
     tr.append(
       cell("td", phase),
+      cell("td", dash(fkv)),
       cell("td", dash(cpp)),
-      cell("td", dash(rust)),
       cell("td", dash(ratio), tone === "bad" ? "HomeSlow" : "HomeSpeed")
     );
     tbody.append(tr);
