@@ -176,6 +176,12 @@ def build_config(report: dict, run_id: str, date: str, has_rocksdb: bool) -> str
             ["采样", f"每阶段 {max(cfg['samples'], 1)} 次"],
             ["分区", "单分区（EloqStore num_threads=1）"],
         ]),
+        ("持久化 / fsync", [
+            ["fkv", "每批 1×数据 + 1×manifest fdatasync（无关闭开关）"],
+            ["EloqStore", "每批 SyncData + AppendManifest（KvOptions 无开关）"],
+            ["RocksDB", "WAL 开、WriteOptions.sync=false（默认，不逐次 fsync）"],
+            ["影响", "写阶段两侧多付同步，读阶段不受影响"],
+        ]),
         ("RocksDB 列", ([
             ["版本", "CI 系统包 librocksdb-dev"],
             ["block cache", f"{cache_mib:.0f} MiB LRU（与两侧缓存同额）"],
@@ -258,7 +264,9 @@ def main() -> None:
         text, "PERF_HAS_ROCKSDB", "true;" if has_rocksdb else "false;"
     )
     text = replace_block(
-        text, "PERF_CONFIG", build_config(report, args.run_id, args.date, has_rocksdb)
+        text,
+        "PERF_CONFIG",
+        build_config(report, args.run_id, args.date, has_rocksdb) + ";",
     )
     Path(args.perf_js).write_text(text)
     print(f"updated {args.perf_js} from {args.json} (run {args.run_id})")

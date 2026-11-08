@@ -26,10 +26,16 @@ export const PERF_CONFIG = {
     ["采样", "每阶段 1 次"],
     ["分区", "单分区（EloqStore num_threads=1）"],
   ],
+  "持久化 / fsync": [
+    ["fkv", "每批 1×数据 + 1×manifest fdatasync（无关闭开关）"],
+    ["EloqStore", "每批 SyncData + AppendManifest（KvOptions 无开关）"],
+    ["RocksDB", "WAL 开、WriteOptions.sync=false（默认，不逐次 fsync）"],
+    ["影响", "写阶段两侧多付同步，读阶段不受影响"],
+  ],
   "RocksDB 列": [
     ["状态", "本次未启用（--rocksdb-lib 未加载）"],
   ],
-}
+};
 
 export const PERF_HAS_ROCKSDB = false;
 
