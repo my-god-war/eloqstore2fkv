@@ -1,0 +1,20 @@
+name: eloqstore2fkv
+
+services:
+  oracle:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.oracle
+      args:
+        ORACLE_BASE: ${ORACLE_BASE:-ubuntu:26.04}
+    volumes:
+      - ${EKV_ELOQSTORE_PATH:-../../eloqstore}:/src/eloqstore
+      - ../.data/oracle:/data
+      - ../fixtures:/fixtures
+      - ..:/src/eloqstore2fkv:ro
+    working_dir: /src/eloqstore
+    command: ["sleep", "infinity"]
+    security_opt:
+      - seccomp:unconfined
+    ulimits:
+      memlock: -1

@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/vi/README.md) : Tạo và hiển thị lớp bật lên bằng nút đóng
+[Code](../../src/webc/Code/i18n/vi/README.md) : nút mã
+[Copy](../../src/webc/Copy/i18n/vi/README.md) : Sao chép văn bản vào clipboard
+[Edit](../../src/webc/Edit/i18n/vi/README.md) : nút chỉnh sửa
+[I18n](../../src/webc/I18n/i18n/vi/README.md) : Các nút và cửa sổ bật lên để chuyển đổi ngôn ngữ giao diện
+[Nav](../../src/webc/Nav/i18n/vi/README.md) : Thanh điều hướng trên cùng tự động thu gọn hoặc mở rộng khi cuộn trang
+[NavL](../../src/webc/NavL/i18n/vi/README.md) : Tự động chuyển đổi menu điều hướng và nút quay lại
+[NavMenu](../../src/webc/NavMenu/i18n/vi/README.md) : Menu điều hướng thích ứng với các kích thước màn hình khác nhau
+[Side](../../src/webc/Side/i18n/vi/README.md) : Bảng ngăn kéo trượt ra từ bên cạnh
+[Toc](../../src/webc/Toc/i18n/vi/README.md) : Thành phần điều hướng thư mục
+[Btn](../../src/webc/Btn/i18n/vi/README.md) : Nút thông thường và nút biểu tượng tròn
+[Card](../../src/webc/Card/i18n/vi/README.md) : Thẻ Capsule có mũi tên phải hiển thị ở trạng thái treo
+[H1Txt](../../src/webc/H1Txt/i18n/vi/README.md) : Tiêu đề và mô tả kết cấu
+[Ing](../../src/webc/Ing/i18n/vi/README.md) : Chỉ báo trạng thái tải hoặc xử lý
+[Lg](../../src/webc/Lg/i18n/vi/README.md) : Hiệu ứng làm nổi bật cạnh và nền kính mờ
+[MdCss](../../src/webc/MdCss/i18n/vi/README.md) : Kiểu chữ được tối ưu hóa cho trải nghiệm đọc
+[NavALi](../../src/webc/NavALi/i18n/vi/README.md) : Kiểu danh sách liên kết thanh điều hướng
+[O](../../src/webc/O/i18n/vi/README.md) : Vẽ logo chấm rỗng phía trước phần tử
+[Toast](../../src/webc/Toast/i18n/vi/README.md) : Cửa sổ bật lên nhắc nhở ở cạnh trang
+[Back](../../src/webc/Back/i18n/vi/README.md) : nút quay lại
+[Box](../../src/webc/Box/i18n/vi/README.md) : Tạo và hiển thị lớp bật lên
+[Md](../../src/webc/Md/i18n/vi/README.md) : Phân tích cú pháp và hiển thị văn bản Markdown thành HTML một cách an toàn.
+[Pophover](../../src/webc/Pophover/i18n/vi/README.md) : dấu nhắc bong bóng nổi
+[Scroll](../../src/webc/Scroll/i18n/vi/README.md) : thanh cuộn ảo
+[eloqstore2fkv](../vi/doc/README.md)
+[Quá trình xác minh](../vi/doc/workflow.md)
+[C++ oracle](../vi/doc/oracle.md)
+[Di chuyển sổ cái](../vi/doc/ledger.md)
+[Hiệu suất](../vi/doc/performance.md)
+[Xem xét hồ sơ](../vi/doc/issues.md)
+[Nhật ký thay đổi](../vi/blog/README.md) : Nhật ký cập nhật dự án và mục thay đổi hiệu suất cũng như khả năng tương thích
+[2026-11-06: Bảng hiệu suất trang chủ, mở rộng chỉ báo và Trang](../vi/blog/2026-11-06-homepage-and-metrics.md) : So sánh hiệu suất trang chủ, mở rộng chỉ số đánh giá, Trang GitHub và blog đa ngôn ngữ trực tuyến

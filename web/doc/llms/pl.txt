@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/pl/README.md) : Utwórz i wyświetl warstwę wyskakującą z przyciskiem zamykania
+[Code](../../src/webc/Code/i18n/pl/README.md) : przycisk kodu
+[Copy](../../src/webc/Copy/i18n/pl/README.md) : Skopiuj tekst do schowka
+[Edit](../../src/webc/Edit/i18n/pl/README.md) : przycisk edycji
+[I18n](../../src/webc/I18n/i18n/pl/README.md) : Przyciski i wyskakujące okienka do zmiany języka interfejsu
+[Nav](../../src/webc/Nav/i18n/pl/README.md) : Górny pasek nawigacyjny, który automatycznie zwija się lub rozwija podczas przewijania strony
+[NavL](../../src/webc/NavL/i18n/pl/README.md) : Automatycznie przełączaj menu nawigacyjne i przycisk powrotu
+[NavMenu](../../src/webc/NavMenu/i18n/pl/README.md) : Menu nawigacyjne dostosowane do różnych rozmiarów ekranów
+[Side](../../src/webc/Side/i18n/pl/README.md) : Panele szuflad wysuwane z boku
+[Toc](../../src/webc/Toc/i18n/pl/README.md) : Komponent nawigacji katalogowej
+[Btn](../../src/webc/Btn/i18n/pl/README.md) : Zwykły przycisk i okrągły przycisk z ikoną
+[Card](../../src/webc/Card/i18n/pl/README.md) : Karta kapsułki ze strzałką w prawo wyświetlaną w zawieszeniu
+[H1Txt](../../src/webc/H1Txt/i18n/pl/README.md) : Tytuł i opis tekstury
+[Ing](../../src/webc/Ing/i18n/pl/README.md) : Wskaźnik stanu załadunku lub przetwarzania
+[Lg](../../src/webc/Lg/i18n/pl/README.md) : Efekt podświetlenia tła i krawędzi z matowego szkła
+[MdCss](../../src/webc/MdCss/i18n/pl/README.md) : Style typografii zoptymalizowane pod kątem czytania
+[NavALi](../../src/webc/NavALi/i18n/pl/README.md) : Styl listy łączy paska nawigacji
+[O](../../src/webc/O/i18n/pl/README.md) : Narysuj logo w postaci pustej kropki przed elementem
+[Toast](../../src/webc/Toast/i18n/pl/README.md) : Wyskakujące okienko podpowiedzi na krawędzi strony
+[Back](../../src/webc/Back/i18n/pl/README.md) : przycisk wstecz
+[Box](../../src/webc/Box/i18n/pl/README.md) : Utwórz i wyświetl warstwę wyskakującą
+[Md](../../src/webc/Md/i18n/pl/README.md) : Bezpiecznie analizuj i renderuj tekst Markdown do formatu HTML.
+[Pophover](../../src/webc/Pophover/i18n/pl/README.md) : monit o pływającą bańkę
+[Scroll](../../src/webc/Scroll/i18n/pl/README.md) : wirtualny pasek przewijania
+[eloqstore2fkv](../pl/doc/README.md)
+[Proces weryfikacji](../pl/doc/workflow.md)
+[C++ oracle](../pl/doc/oracle.md)
+[Przeprowadź migrację księgi](../pl/doc/ledger.md)
+[Wydajność](../pl/doc/performance.md)
+[Przejrzyj zapisy](../pl/doc/issues.md)
+[Zmień dziennik](../pl/blog/README.md) : Dziennik aktualizacji projektu oraz wpis dotyczący zmian w wydajności i zgodności
+[2026-11-06: Tabela wydajności strony głównej, rozwinięcie wskaźników i Strony](../pl/blog/2026-11-06-homepage-and-metrics.md) : Porównanie wydajności strony głównej, rozszerzenie wskaźnika oceny, strony GitHub i wielojęzyczne blogi online

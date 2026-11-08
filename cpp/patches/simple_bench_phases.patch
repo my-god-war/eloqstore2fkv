@@ -1,0 +1,167 @@
+diff --git a/benchmark/simple_bench.cpp b/benchmark/simple_bench.cpp
+index 8d8ceba..0a5d099 100644
+--- a/benchmark/simple_bench.cpp
++++ b/benchmark/simple_bench.cpp
+@@ -20,7 +20,10 @@
+ #include "../external/concurrentqueue/blockingconcurrentqueue.h"
+
+ DEFINE_string(kvoptions, "", "Path to config file of EloqStore options");
+-DEFINE_string(workload, "", "workload (write/read/scan/write-read/write-scan)");
++DEFINE_string(workload,
++              "",
++              "workload "
++              "(write/read/scan/write-read/write-scan/delete/compact)");
+ DEFINE_uint32(kv_size, 128, "size of a pair of KV");
+ DEFINE_uint32(batch_size, 8192, "number of KVs per batch");
+ DEFINE_uint32(write_batchs, 32768, "number of batchs to write");
+@@ -33,6 +36,13 @@ DEFINE_uint32(read_thds, 1, "number of client threads send read/scan requests");
+ DEFINE_bool(load,
+             false,
+             "load data sequentially for later tests (step=1, upsert-only)");
++DEFINE_bool(no_delete,
++            false,
++            "writer emits upserts only, without the random delete ratio");
++DEFINE_bool(
++    delete_only,
++    false,
++    "writer emits deletes only and advances keys sequentially (step=1)");
+ DEFINE_double(write_stats_interval_sec,
+               1.0,
+               "minimum seconds between periodic write performance logs");
+@@ -84,6 +94,30 @@ static constexpr size_t key_interval = 4;
+ static constexpr size_t del_ratio = 4;
+ static constexpr double upsert_ratio = 1 - (1.0 / del_ratio);
+
++static bool SequentialKeyMode()
++{
++    return FLAGS_load || FLAGS_delete_only;
++}
++
++static bool EmitDelete()
++{
++    return FLAGS_delete_only ||
++           (!FLAGS_load && !FLAGS_no_delete && (rand_gen() % del_ratio == 0));
++}
++
++static double ExpectedUpsertRatio()
++{
++    if (FLAGS_delete_only)
++    {
++        return 0.0;
++    }
++    if (FLAGS_load || FLAGS_no_delete)
++    {
++        return 1.0;
++    }
++    return upsert_ratio;
++}
++
+ class Writer
+ {
+ public:
+@@ -108,10 +142,11 @@ Writer::Writer(uint32_t id) : id_(id)
+         std::string key;
+         key.resize(sizeof(uint64_t));
+         EncodeKey(key.data(), writing_key_);
+-        writing_key_ += FLAGS_load ? 1 : ((rand_gen() % key_interval) + 1);
++        writing_key_ +=
++            SequentialKeyMode() ? 1 : ((rand_gen() % key_interval) + 1);
+         std::string value;
+         value.resize(FLAGS_kv_size - sizeof(uint64_t));
+-        if (!FLAGS_load && (rand_gen() % del_ratio == 0))
++        if (EmitDelete())
+         {
+             entries.emplace_back(std::move(key),
+                                  std::move(value),
+@@ -138,10 +173,11 @@ void Writer::NextBatch()
+     uint64_t ts = utils::UnixTs<milliseconds>();
+     for (auto &entry : request_.batch_)
+     {
+-        writing_key_ += FLAGS_load ? 1 : ((rand_gen() % key_interval) + 1);
++        writing_key_ +=
++            SequentialKeyMode() ? 1 : ((rand_gen() % key_interval) + 1);
+         EncodeKey(entry.key_.data(), writing_key_);
+         entry.timestamp_ = ts;
+-        if (!FLAGS_load && (rand_gen() % del_ratio == 0))
++        if (EmitDelete())
+         {
+             entry.op_ = eloqstore::WriteOp::Delete;
+         }
+@@ -211,7 +247,7 @@ void WriteLoop(eloqstore::EloqStore *store)
+             const uint64_t num_kvs =
+                 uint64_t(FLAGS_batch_size) * completed_batches;
+             const uint64_t kvs_per_sec = num_kvs * 1000 / cost_ms;
+-            const double upsert_ratio_current = FLAGS_load ? 1.0 : upsert_ratio;
++            const double upsert_ratio_current = ExpectedUpsertRatio();
+             const uint64_t mb_per_sec =
+                 (static_cast<uint64_t>(kvs_per_sec * upsert_ratio_current) *
+                  FLAGS_kv_size) >>
+@@ -242,7 +278,7 @@ void WriteLoop(eloqstore::EloqStore *store)
+         const uint64_t num_kvs =
+             static_cast<uint64_t>(FLAGS_batch_size) * FLAGS_write_batchs;
+         const uint64_t kvs_per_sec = num_kvs * 1000 / total_cost_ms;
+-        const double upsert_ratio_current = FLAGS_load ? 1.0 : upsert_ratio;
++        const double upsert_ratio_current = ExpectedUpsertRatio();
+         const uint64_t mb_per_sec =
+             (static_cast<uint64_t>(kvs_per_sec * upsert_ratio_current) *
+              FLAGS_kv_size) >>
+@@ -573,6 +609,25 @@ int main(int argc, char *argv[])
+                   << FLAGS_max_key << ")";
+     }
+
++    if (FLAGS_workload == "delete")
++    {
++        // The delete lane reuses the writer but must be driven explicitly so
++        // that a typo in the call site cannot silently issue a huge run
++        // against the default key space.
++        const auto require_flag = [](const char *name)
++        {
++            google::CommandLineFlagInfo info;
++            if (!google::GetCommandLineFlagInfo(name, &info) || info.is_default)
++            {
++                LOG(FATAL) << "workload delete requires --" << name
++                           << " to be set explicitly";
++            }
++        };
++        require_flag("write_batchs");
++        require_flag("max_key");
++        FLAGS_delete_only = true;
++    }
++
+     eloqstore::KvOptions options;
+     if (int res = options.LoadFromIni(FLAGS_kvoptions.c_str()); res != 0)
+     {
+@@ -616,6 +671,33 @@ int main(int argc, char *argv[])
+         std::thread write_thd(WriteLoop, &store);
+         write_thd.join();
+     }
++    else if (FLAGS_workload == "delete")
++    {
++        // Delete only: rewrite the existing key space with WriteOp::Delete.
++        std::thread write_thd(WriteLoop, &store);
++        write_thd.join();
++    }
++    else if (FLAGS_workload == "compact")
++    {
++        // Compact every existing partition synchronously.
++        const auto compact_start = high_resolution_clock::now();
++        for (uint32_t i = 0; i < FLAGS_partitions; i++)
++        {
++            eloqstore::CompactRequest req;
++            req.SetTableId(eloqstore::TableIdent(table, i));
++            store.ExecSync(&req);
++            if (req.Error() != eloqstore::KvError::NoError)
++            {
++                LOG(FATAL) << "compact failed for partition " << i << ": "
++                           << eloqstore::ErrorString(req.Error());
++            }
++        }
++        const auto compact_end = high_resolution_clock::now();
++        const auto compact_total_ms =
++            duration_cast<milliseconds>(compact_end - compact_start).count();
++        LOG(INFO) << "compact total " << compact_total_ms << " ms";
++        LOG(INFO) << "compact partitions " << FLAGS_partitions;
++    }
+     else if (FLAGS_workload == "read")
+     {
+         // Read only

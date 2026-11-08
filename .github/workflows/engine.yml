@@ -1,0 +1,177 @@
+name: engine
+
+# 引擎级交叉：C++ EloqStore 写真实 store → Rust 打开/读 → Rust 续写 →
+# C++ 读回。只有这条 workflow 需要完整 C++ 引擎构建，普通 oracle 语料不需要。
+#
+# 证据 pin：fkv 主线会被周期性重建（init 提交换新），commit SHA 在 rewrite 后
+# 不可达，因此本 workflow 不写死 fkv SHA。默认 checkout fkv main HEAD，运行后
+# 把实际 HEAD / HEAD^{tree} 写入 step summary；证据文档与 COMPAT_BASELINE 以
+# 运行记录的 commit + tree 归档。fkv 主线推进不会触发本仓 workflow
+# （on.push.paths 只覆盖本仓文件），发布前用 workflow_dispatch 的 fkv_sha 对
+# 目标修订复跑，或用 fkv_tree 断言候选修订的内容树等于已归档证据 tree。
+on:
+  workflow_dispatch:
+    inputs:
+      fkv_sha:
+        description: "fkv commit to verify (empty = fkv main HEAD)"
+        required: false
+        type: string
+      fkv_tree:
+        description: "expected fkv tree hash to assert (empty = record only)"
+        required: false
+        type: string
+  push:
+    paths:
+      - "cpp/engine_driver/**"
+      - "crate/compat/fkv_engine_cross/**"
+      - ".github/workflows/engine.yml"
+
+concurrency:
+  group: engine-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FKV_REPO: webc-site/fkv
+  # 证据锚点是「运行时 commit + tree hash」，不是固定 SHA：fkv 历史会被周期性
+  # 重建，任何 SHA 都会在 rewrite 后不可达。留空 → checkout fkv main HEAD。
+  FKV_COMMIT: ""
+
+jobs:
+  engine-cross:
+    name: engine-cross (${{ matrix.alloc }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - alloc: pooled
+            append: "0"
+          - alloc: append
+            append: "1"
+    env:
+      ENGINE_APPEND_MODE: ${{ matrix.append }}
+      FKV_ENGINE_APPEND_MODE: ${{ matrix.append }}
+      # CI 必须真跑 overflow 用例；缺 L0000 语料时失败，不再静默跳过。
+      FKV_REQUIRE_OVERFLOW: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - name: checkout fkv
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.FKV_REPO }}
+          # 空 FKV_COMMIT 时 ref=main：跟随 fkv 主线 HEAD；fkv_sha 可验证候选。
+          ref: ${{ inputs.fkv_sha || env.FKV_COMMIT || 'main' }}
+          path: fkv
+      - name: record and assert fkv revision
+        env:
+          REQUESTED_FKV_SHA: ${{ inputs.fkv_sha }}
+          EXPECTED_FKV_TREE: ${{ inputs.fkv_tree }}
+        run: |
+          actual=$(git -C fkv rev-parse HEAD)
+          tree=$(git -C fkv rev-parse 'HEAD^{tree}')
+          test "$(git -C fkv cat-file -t "$tree")" = tree
+          if [ -n "$REQUESTED_FKV_SHA" ]; then
+            test "$actual" = "$REQUESTED_FKV_SHA" || {
+              echo "requested fkv_sha=$REQUESTED_FKV_SHA, checked out $actual" >&2
+              exit 1
+            }
+          fi
+          if [ -n "$EXPECTED_FKV_TREE" ]; then
+            test "$tree" = "$EXPECTED_FKV_TREE" || {
+              echo "expected fkv tree=$EXPECTED_FKV_TREE, checked out tree=$tree" >&2
+              exit 1
+            }
+          fi
+          echo "fkv commit=$actual tree=$tree ref=${REQUESTED_FKV_SHA:-main}"
+          {
+            echo "### engine-cross (${{ matrix.alloc }})"
+            echo "- fkv repo: ${{ env.FKV_REPO }}"
+            echo "- fkv ref: ${REQUESTED_FKV_SHA:-main}"
+            echo "- fkv commit: $actual"
+            echo "- fkv tree: $tree"
+            echo "- run at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: link sibling fkv
+        run: ln -s "$GITHUB_WORKSPACE/fkv" "$GITHUB_WORKSPACE/../fkv"
+      - name: assert 4 KiB page size
+        run: test "$(getconf PAGESIZE)" = 4096
+      - name: install C++ build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build git curl ca-certificates pkg-config \
+            libboost-all-dev libjsoncpp-dev libzstd-dev libssl-dev libaio-dev \
+            liburing-dev libgoogle-glog-dev libgflags-dev libcurl4-openssl-dev \
+            libprotobuf-dev libprotoc-dev protobuf-compiler libleveldb-dev \
+            libzmq3-dev cppzmq-dev
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - name: fetch pinned eloqstore
+        run: scripts/fetch_eloqstore.sh
+      - name: assert pinned eloqstore revision
+        run: |
+          expected=$(awk 'NR == 1 {print $3}' COMPAT_BASELINE)
+          actual=$(git -C cpp/eloqstore rev-parse HEAD)
+          echo "eloqstore pinned: $expected, checked out: $actual"
+          test "$actual" = "$expected"
+          echo "- eloqstore: $actual (pinned by COMPAT_BASELINE)" >> "$GITHUB_STEP_SUMMARY"
+      - name: cache C++ build
+        uses: actions/cache@v4
+        with:
+          path: cpp/engine-build
+          key: engine-build-${{ runner.os }}-82b774c-${{ hashFiles('cpp/engine_driver/**') }}
+      - name: build engine driver
+        run: |
+          cmake -B cpp/engine-build -S cpp/engine_driver -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DELOQSTORE_SRC="$PWD/cpp/eloqstore" \
+            -DCMAKE_C_FLAGS=-D_GNU_SOURCE
+          cmake --build cpp/engine-build --target engine_driver -j"$(nproc)"
+          find cpp/engine-build -type f -name engine_driver -perm -u+x | head -n 1 > "$RUNNER_TEMP/engine_driver.path"
+          test -s "$RUNNER_TEMP/engine_driver.path"
+      - name: C++ write store
+        run: |
+          DRIVER=$(cat "$RUNNER_TEMP/engine_driver.path")
+          STORE="$RUNNER_TEMP/cpp-store"
+          rm -rf "$STORE"
+          "$DRIVER" write "$STORE" demo.1 c 64 cpp
+          # 第二张表：与 demo.1 同 root，覆盖多表交叉（engine_cross 的
+          # cpp_write_rust_read_second_table）。
+          "$DRIVER" write "$STORE" other.1 o 16 other
+          # overflow / 大 value：4 × 100 KiB，跨 overflow 页与 pointer 组。
+          "$DRIVER" write_repeat "$STORE" demo.1 L 4 102400 x
+          echo "FKV_CPP_STORE=$STORE" >> "$GITHUB_ENV"
+          echo "FKV_STORE=$STORE" >> "$GITHUB_ENV"
+      - name: Rust read C++ store and continue writing
+        run: cargo test -p fkv_engine_cross --test engine_cross -- --ignored --nocapture
+      - name: C++ read back Rust writes
+        run: |
+          DRIVER=$(cat "$RUNNER_TEMP/engine_driver.path")
+          "$DRIVER" verify "$FKV_STORE" demo.1 r 16 rust
+          # Rust 续写的第二张表（engine_cross 的 cpp_write_rust_read_second_table）。
+          "$DRIVER" verify "$FKV_STORE" other.1 p 8 rust2
+          # Rust 续写的 overflow 大 value（engine_cross 的 overflow 用例）。
+          "$DRIVER" verify_repeat "$FKV_STORE" demo.1 M 4 102400 y
+      - name: C++ re-read its own writes
+        run: |
+          DRIVER=$(cat "$RUNNER_TEMP/engine_driver.path")
+          "$DRIVER" verify "$FKV_STORE" demo.1 c 64 cpp
+          # 第二张表 C++ 自写自读（与 demo.1 同 root）。
+          "$DRIVER" verify "$FKV_STORE" other.1 o 16 other
+          "$DRIVER" verify_repeat "$FKV_STORE" demo.1 L 4 102400 x
+      - name: C++ op-log dump
+        run: |
+          DRIVER=$(cat "$RUNNER_TEMP/engine_driver.path")
+          STORE="$RUNNER_TEMP/oplog-cpp"
+          rm -rf "$STORE" "$RUNNER_TEMP/cpp.dump"
+          "$DRIVER" apply "$STORE" demo.1 "$GITHUB_WORKSPACE/cpp/engine_driver/tests/oplog/basic.oplog"
+          "$DRIVER" dump "$STORE" demo.1 "$RUNNER_TEMP/cpp.dump"
+      - name: Rust op-log dump
+        env:
+          FKV_OPLOG: ${{ github.workspace }}/cpp/engine_driver/tests/oplog/basic.oplog
+          FKV_RUST_STORE: ${{ runner.temp }}/oplog-rust
+          FKV_RUST_DUMP: ${{ runner.temp }}/rust.dump
+        run: cargo test -p fkv_engine_cross --test oplog_diff -- --ignored --nocapture
+      - name: diff C++ vs Rust dump
+        run: diff -u "$RUNNER_TEMP/cpp.dump" "$RUNNER_TEMP/rust.dump"

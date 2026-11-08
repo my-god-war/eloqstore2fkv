@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/hu/README.md) : Hozzon létre és jelenítsen meg egy felugró réteget a bezárás gombbal
+[Code](../../src/webc/Code/i18n/hu/README.md) : kód gomb
+[Copy](../../src/webc/Copy/i18n/hu/README.md) : Szöveg másolása a vágólapra
+[Edit](../../src/webc/Edit/i18n/hu/README.md) : szerkesztés gomb
+[I18n](../../src/webc/I18n/i18n/hu/README.md) : Gombok és felugró ablakok az interfész nyelvének váltásához
+[Nav](../../src/webc/Nav/i18n/hu/README.md) : Felső navigációs sáv, amely automatikusan összecsukódik vagy kinyílik, amikor az oldal görget
+[NavL](../../src/webc/NavL/i18n/hu/README.md) : A navigációs menü és a visszatérés gomb automatikus váltása
+[NavMenu](../../src/webc/NavMenu/i18n/hu/README.md) : Különböző képernyőméretekhez igazított navigációs menü
+[Side](../../src/webc/Side/i18n/hu/README.md) : Oldalról kicsúsztatható fiókpanelek
+[Toc](../../src/webc/Toc/i18n/hu/README.md) : Címtárnavigációs komponens
+[Btn](../../src/webc/Btn/i18n/hu/README.md) : Közönséges gomb és kerek ikon gomb
+[Card](../../src/webc/Card/i18n/hu/README.md) : Kapszula kártya jobbra nyíllal, felfüggesztve
+[H1Txt](../../src/webc/H1Txt/i18n/hu/README.md) : Textúra címe és leírása
+[Ing](../../src/webc/Ing/i18n/hu/README.md) : Betöltési vagy feldolgozási állapot jelzője
+[Lg](../../src/webc/Lg/i18n/hu/README.md) : Tetüveg háttér és élkiemelés hatása
+[MdCss](../../src/webc/MdCss/i18n/hu/README.md) : Az olvasási élményhez optimalizált tipográfiai stílusok
+[NavALi](../../src/webc/NavALi/i18n/hu/README.md) : Navigációs sáv hivatkozáslista stílusa
+[O](../../src/webc/O/i18n/hu/README.md) : Rajzolj egy üreges pont logót az elem elé
+[Toast](../../src/webc/Toast/i18n/hu/README.md) : Felugró ablak az oldal szélén
+[Back](../../src/webc/Back/i18n/hu/README.md) : vissza gomb
+[Box](../../src/webc/Box/i18n/hu/README.md) : Előugró réteg létrehozása és megjelenítése
+[Md](../../src/webc/Md/i18n/hu/README.md) : A Markdown szöveg biztonságos elemzése és renderelése HTML-be.
+[Pophover](../../src/webc/Pophover/i18n/hu/README.md) : lebegő buborék prompt
+[Scroll](../../src/webc/Scroll/i18n/hu/README.md) : virtuális görgetősáv
+[eloqstore2fkv](../hu/doc/README.md)
+[Ellenőrzési folyamat](../hu/doc/workflow.md)
+[C++ oracle](../hu/doc/oracle.md)
+[Főkönyv migrálása](../hu/doc/ledger.md)
+[Teljesítmény](../hu/doc/performance.md)
+[Feljegyzések áttekintése](../hu/doc/issues.md)
+[Változásnapló](../hu/blog/README.md) : Projektfrissítési napló, valamint teljesítmény- és kompatibilitás-változási bejegyzés
+[2026-11-06: Főoldal teljesítménytáblázata, mutatóbővítés és oldalak](../hu/blog/2026-11-06-homepage-and-metrics.md) : Kezdőlap teljesítmény-összehasonlítása, értékelési mutató bővítése, GitHub oldalak és többnyelvű blogok online

@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/si/README.md) : වසන්න බොත්තමක් සමඟ උත්පතන ස්ථරයක් සාදා සංදර්ශන කරන්න
+[Code](../../src/webc/Code/i18n/si/README.md) : කේත බොත්තම
+[Copy](../../src/webc/Copy/i18n/si/README.md) : පෙළ පසුරු පුවරුවට පිටපත් කරන්න
+[Edit](../../src/webc/Edit/i18n/si/README.md) : සංස්කරණ බොත්තම
+[I18n](../../src/webc/I18n/i18n/si/README.md) : අතුරු මුහුණත් භාෂා මාරු කිරීම සඳහා බොත්තම් සහ උත්පතන කවුළු
+[Nav](../../src/webc/Nav/i18n/si/README.md) : පිටුව අනුචලනය වන විට ස්වයංක්‍රීයව කඩා වැටෙන හෝ පුළුල් වන ඉහළ සංචාලන තීරුව
+[NavL](../../src/webc/NavL/i18n/si/README.md) : සංචාලන මෙනුව සහ ආපසු බොත්තම ස්වයංක්‍රීයව මාරු කරන්න
+[NavMenu](../../src/webc/NavMenu/i18n/si/README.md) : සංචාලන මෙනුව විවිධ තිර ප්‍රමාණයන්ට අනුවර්තනය කර ඇත
+[Side](../../src/webc/Side/i18n/si/README.md) : පැත්තෙන් ලිස්සා යන ලාච්චු පැනල්
+[Toc](../../src/webc/Toc/i18n/si/README.md) : නාමාවලි සංචාලන සංරචකය
+[Btn](../../src/webc/Btn/i18n/si/README.md) : සාමාන්‍ය බොත්තම සහ රවුම් අයිකන බොත්තම
+[Card](../../src/webc/Card/i18n/si/README.md) : අත්හිටුවීම තුළ දකුණු ඊතලය සහිත කැප්සියුල කාඩ්පත
+[H1Txt](../../src/webc/H1Txt/i18n/si/README.md) : වයනය මාතෘකාව සහ විස්තරය
+[Ing](../../src/webc/Ing/i18n/si/README.md) : පැටවීමේ හෝ සැකසීමේ තත්ත්වය පිළිබඳ දර්ශකය
+[Lg](../../src/webc/Lg/i18n/si/README.md) : ශීත කළ වීදුරු පසුබිම සහ දාර උද්දීපන බලපෑම
+[MdCss](../../src/webc/MdCss/i18n/si/README.md) : කියවීමේ අත්දැකීම සඳහා මුද්‍රණ ශෛලීන් ප්‍රශස්ත කර ඇත
+[NavALi](../../src/webc/NavALi/i18n/si/README.md) : සංචාලන තීරු සබැඳි ලැයිස්තු විලාසය
+[O](../../src/webc/O/i18n/si/README.md) : මූලද්‍රව්‍යයට ඉදිරියෙන් හිස් තිත් ලාංඡනයක් අඳින්න
+[Toast](../../src/webc/Toast/i18n/si/README.md) : පිටුවේ කෙළවරේ ඇති ක්ෂණික උත්පතන කවුළුව
+[Back](../../src/webc/Back/i18n/si/README.md) : ආපසු බොත්තම
+[Box](../../src/webc/Box/i18n/si/README.md) : උත්පතන ස්තරය සාදා සංදර්ශන කරන්න
+[Md](../../src/webc/Md/i18n/si/README.md) : ආරක්ෂිතව විග්‍රහ කර Markdown පෙළ HTML වෙත ලබා දෙන්න.
+[Pophover](../../src/webc/Pophover/i18n/si/README.md) : පාවෙන බුබුලු විමසුම
+[Scroll](../../src/webc/Scroll/i18n/si/README.md) : අතථ්‍ය අනුචලන තීරුව
+[eloqstore2fkv](../si/doc/README.md)
+[සත්යාපන ක්රියාවලිය](../si/doc/workflow.md)
+[C++ oracle](../si/doc/oracle.md)
+[ලෙජරය සංක්‍රමණය කරන්න](../si/doc/ledger.md)
+[කාර්ය සාධනය](../si/doc/performance.md)
+[වාර්තා සමාලෝචනය කරන්න](../si/doc/issues.md)
+[ලොගය වෙනස් කරන්න](../si/blog/README.md) : ව්‍යාපෘති යාවත්කාලීන ලොගය සහ කාර්ය සාධනය සහ ගැළපුම වෙනස් කිරීමේ ප්‍රවේශය
+[2026-11-06: මුල් පිටුව කාර්ය සාධන වගුව, දර්ශක පුළුල් කිරීම සහ පිටු](../si/blog/2026-11-06-homepage-and-metrics.md) : මුල් පිටුව කාර්ය සාධනය සංසන්දනය කිරීම, ඇගයීම් දර්ශක පුළුල් කිරීම, GitHub පිටු සහ බහු භාෂා බ්ලොග් සබැඳි

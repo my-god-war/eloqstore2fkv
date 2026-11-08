@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/cy/README.md) : Creu ac arddangos haenen naid gyda botwm cau
+[Code](../../src/webc/Code/i18n/cy/README.md) : botwm cod
+[Copy](../../src/webc/Copy/i18n/cy/README.md) : Copïo testun i'r clipfwrdd
+[Edit](../../src/webc/Edit/i18n/cy/README.md) : botwm golygu
+[I18n](../../src/webc/I18n/i18n/cy/README.md) : Botymau a ffenestri naid ar gyfer newid ieithoedd rhyngwyneb
+[Nav](../../src/webc/Nav/i18n/cy/README.md) : Bar llywio uchaf sy'n cwympo neu'n ehangu'n awtomatig pan fydd y dudalen yn sgrolio
+[NavL](../../src/webc/NavL/i18n/cy/README.md) : Newid y ddewislen llywio a'r botwm dychwelyd yn awtomatig
+[NavMenu](../../src/webc/NavMenu/i18n/cy/README.md) : Dewislen llywio wedi'i haddasu i wahanol feintiau sgrin
+[Side](../../src/webc/Side/i18n/cy/README.md) : Paneli drôr sy'n llithro allan o'r ochr
+[Toc](../../src/webc/Toc/i18n/cy/README.md) : Cydran Llywio Cyfeiriadur
+[Btn](../../src/webc/Btn/i18n/cy/README.md) : Botwm cyffredin a botwm eicon crwn
+[Card](../../src/webc/Card/i18n/cy/README.md) : Cerdyn capsiwl gyda saeth dde wedi'i harddangos yn yr ataliad
+[H1Txt](../../src/webc/H1Txt/i18n/cy/README.md) : Teitl gwead a disgrifiad
+[Ing](../../src/webc/Ing/i18n/cy/README.md) : Dangosydd statws llwytho neu brosesu
+[Lg](../../src/webc/Lg/i18n/cy/README.md) : Cefndir gwydr barugog ac effaith amlygu ymyl
+[MdCss](../../src/webc/MdCss/i18n/cy/README.md) : Arddulliau teipograffeg wedi'u hoptimeiddio ar gyfer profiad darllen
+[NavALi](../../src/webc/NavALi/i18n/cy/README.md) : Arddull rhestr cyswllt bar llywio
+[O](../../src/webc/O/i18n/cy/README.md) : Tynnwch logo dot gwag o flaen yr elfen
+[Toast](../../src/webc/Toast/i18n/cy/README.md) : Ffenestr naid brydlon ar ymyl y dudalen
+[Back](../../src/webc/Back/i18n/cy/README.md) : botwm yn ôl
+[Box](../../src/webc/Box/i18n/cy/README.md) : Creu ac arddangos haenen naid
+[Md](../../src/webc/Md/i18n/cy/README.md) : Dosrannu a rendr testun Markdown yn ddiogel i HTML.
+[Pophover](../../src/webc/Pophover/i18n/cy/README.md) : swigen fel y bo'r angen yn brydlon
+[Scroll](../../src/webc/Scroll/i18n/cy/README.md) : bar sgrolio rhithwir
+[eloqstore2fkv](../cy/doc/README.md)
+[Proses ddilysu](../cy/doc/workflow.md)
+[C++ oracle](../cy/doc/oracle.md)
+[Cyfriflyfr mudo](../cy/doc/ledger.md)
+[Perfformiad](../cy/doc/performance.md)
+[Adolygu cofnodion](../cy/doc/issues.md)
+[Newid log](../cy/blog/README.md) : Log diweddaru'r prosiect a chofnod newid perfformiad a chydnawsedd
+[2026-11-06: Tabl perfformiad tudalen gartref, ehangu dangosyddion a Tudalennau](../cy/blog/2026-11-06-homepage-and-metrics.md) : Cymhariaeth perfformiad tudalen gartref, ehangu dangosyddion gwerthuso, GitHub Pages a blogiau aml-iaith ar-lein

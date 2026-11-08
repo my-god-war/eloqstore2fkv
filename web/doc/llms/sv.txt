@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/sv/README.md) : Skapa och visa ett popup-lager med en stängningsknapp
+[Code](../../src/webc/Code/i18n/sv/README.md) : kodknapp
+[Copy](../../src/webc/Copy/i18n/sv/README.md) : Kopiera text till urklipp
+[Edit](../../src/webc/Edit/i18n/sv/README.md) : redigera knappen
+[I18n](../../src/webc/I18n/i18n/sv/README.md) : Knappar och popup-fönster för att byta gränssnittsspråk
+[Nav](../../src/webc/Nav/i18n/sv/README.md) : Översta navigeringsfältet som automatiskt kollapsar eller expanderar när sidan rullar
+[NavL](../../src/webc/NavL/i18n/sv/README.md) : Växla automatiskt navigationsmeny och returknapp
+[NavMenu](../../src/webc/NavMenu/i18n/sv/README.md) : Navigationsmeny anpassad till olika skärmstorlekar
+[Side](../../src/webc/Side/i18n/sv/README.md) : Lådpaneler som glider ut från sidan
+[Toc](../../src/webc/Toc/i18n/sv/README.md) : Katalognavigeringskomponent
+[Btn](../../src/webc/Btn/i18n/sv/README.md) : Vanlig knapp och rund ikonknapp
+[Card](../../src/webc/Card/i18n/sv/README.md) : Kapselkort med högerpil visas i suspension
+[H1Txt](../../src/webc/H1Txt/i18n/sv/README.md) : Textur titel och beskrivning
+[Ing](../../src/webc/Ing/i18n/sv/README.md) : Indikator för laddnings- eller bearbetningsstatus
+[Lg](../../src/webc/Lg/i18n/sv/README.md) : Frostat glasbakgrund och kantmarkeringseffekt
+[MdCss](../../src/webc/MdCss/i18n/sv/README.md) : Typografistilar optimerade för läsupplevelse
+[NavALi](../../src/webc/NavALi/i18n/sv/README.md) : Länkliststil i navigeringsfältet
+[O](../../src/webc/O/i18n/sv/README.md) : Rita en ihålig pricklogotyp framför elementet
+[Toast](../../src/webc/Toast/i18n/sv/README.md) : Snabbfönster i kanten av sidan
+[Back](../../src/webc/Back/i18n/sv/README.md) : tillbaka-knappen
+[Box](../../src/webc/Box/i18n/sv/README.md) : Skapa och visa popup-lager
+[Md](../../src/webc/Md/i18n/sv/README.md) : Analysera och återge Markdown-text på ett säkert sätt till HTML.
+[Pophover](../../src/webc/Pophover/i18n/sv/README.md) : flytande bubbla prompt
+[Scroll](../../src/webc/Scroll/i18n/sv/README.md) : virtuell rullningslist
+[eloqstore2fkv](../sv/doc/README.md)
+[Verifieringsprocess](../sv/doc/workflow.md)
+[C++ oracle](../sv/doc/oracle.md)
+[Migrera huvudbok](../sv/doc/ledger.md)
+[Prestanda](../sv/doc/performance.md)
+[Granska poster](../sv/doc/issues.md)
+[Ändra logg](../sv/blog/README.md) : Projektuppdateringslogg och post för förändringar av prestanda och kompatibilitet
+[2026-11-06: Prestandatabell för startsidan, indikatorexpansion och sidor](../sv/blog/2026-11-06-homepage-and-metrics.md) : Jämförelse av hemsidans prestanda, expansion av utvärderingsindikatorer, GitHub-sidor och flerspråkiga bloggar online

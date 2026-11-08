@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/az/README.md) : Bağlama düyməsi ilə pop-up qat yaradın və göstərin
+[Code](../../src/webc/Code/i18n/az/README.md) : kod düyməsi
+[Copy](../../src/webc/Copy/i18n/az/README.md) : Mətni panoya kopyalayın
+[Edit](../../src/webc/Edit/i18n/az/README.md) : redaktə düyməsi
+[I18n](../../src/webc/I18n/i18n/az/README.md) : İnterfeys dillərini dəyişmək üçün düymələr və açılan pəncərələr
+[Nav](../../src/webc/Nav/i18n/az/README.md) : Səhifə sürüşdürüldükdə avtomatik çökən və ya genişlənən üst naviqasiya paneli
+[NavL](../../src/webc/NavL/i18n/az/README.md) : Naviqasiya menyusunu və qayıt düyməsini avtomatik dəyişdirin
+[NavMenu](../../src/webc/NavMenu/i18n/az/README.md) : Müxtəlif ekran ölçülərinə uyğunlaşdırılmış naviqasiya menyusu
+[Side](../../src/webc/Side/i18n/az/README.md) : Yan tərəfdən sürüşən çekmece panelləri
+[Toc](../../src/webc/Toc/i18n/az/README.md) : Kataloq Naviqasiya Komponenti
+[Btn](../../src/webc/Btn/i18n/az/README.md) : Adi düymə və dəyirmi ikon düyməsi
+[Card](../../src/webc/Card/i18n/az/README.md) : Sağ ox ilə kapsul kartı asma şəklində göstərilir
+[H1Txt](../../src/webc/H1Txt/i18n/az/README.md) : Doku adı və təsviri
+[Ing](../../src/webc/Ing/i18n/az/README.md) : Yükləmə və ya emal statusunun göstəricisi
+[Lg](../../src/webc/Lg/i18n/az/README.md) : Buzlu şüşə fon və kənar vurğu effekti
+[MdCss](../../src/webc/MdCss/i18n/az/README.md) : Oxu təcrübəsi üçün optimallaşdırılmış tipoqrafiya üslubları
+[NavALi](../../src/webc/NavALi/i18n/az/README.md) : Naviqasiya paneli keçid siyahısı stili
+[O](../../src/webc/O/i18n/az/README.md) : Elementin qarşısında içi boş nöqtəli loqo çəkin
+[Toast](../../src/webc/Toast/i18n/az/README.md) : Səhifənin kənarında açılan pəncərə
+[Back](../../src/webc/Back/i18n/az/README.md) : geri düyməsi
+[Box](../../src/webc/Box/i18n/az/README.md) : Açılan təbəqə yaradın və göstərin
+[Md](../../src/webc/Md/i18n/az/README.md) : Markdown mətnini HTML-də təhlükəsiz şəkildə təhlil edin və göstərin.
+[Pophover](../../src/webc/Pophover/i18n/az/README.md) : üzən bubble sorğusu
+[Scroll](../../src/webc/Scroll/i18n/az/README.md) : virtual sürüşmə çubuğu
+[eloqstore2fkv](../az/doc/README.md)
+[Doğrulama prosesi](../az/doc/workflow.md)
+[C++ oracle](../az/doc/oracle.md)
+[Kitabı köçürün](../az/doc/ledger.md)
+[Performans](../az/doc/performance.md)
+[Qeydləri nəzərdən keçirin](../az/doc/issues.md)
+[Dəyişiklik jurnalı](../az/blog/README.md) : Layihə yeniləmə jurnalı və performans və uyğunluq dəyişikliyi girişi
+[2026-11-06: Əsas səhifə performans cədvəli, göstərici genişləndirilməsi və Səhifələr](../az/blog/2026-11-06-homepage-and-metrics.md) : Əsas səhifə performansının müqayisəsi, qiymətləndirmə göstəricisinin genişləndirilməsi, GitHub Səhifələri və onlayn çoxdilli bloqlar

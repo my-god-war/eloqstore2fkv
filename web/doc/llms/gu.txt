@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/gu/README.md) : બંધ બટન વડે પોપઅપ લેયર બનાવો અને પ્રદર્શિત કરો
+[Code](../../src/webc/Code/i18n/gu/README.md) : કોડ બટન
+[Copy](../../src/webc/Copy/i18n/gu/README.md) : ટેક્સ્ટને ક્લિપબોર્ડ પર કૉપિ કરો
+[Edit](../../src/webc/Edit/i18n/gu/README.md) : સંપાદિત કરો બટન
+[I18n](../../src/webc/I18n/i18n/gu/README.md) : ઈન્ટરફેસ ભાષાઓ બદલવા માટે બટનો અને પોપ-અપ વિન્ડો
+[Nav](../../src/webc/Nav/i18n/gu/README.md) : ટોચના નેવિગેશન બાર જે જ્યારે પૃષ્ઠ સ્ક્રોલ કરે છે ત્યારે આપમેળે સંકુચિત અથવા વિસ્તૃત થાય છે
+[NavL](../../src/webc/NavL/i18n/gu/README.md) : નેવિગેશન મેનૂ અને રીટર્ન બટનને આપમેળે સ્વિચ કરો
+[NavMenu](../../src/webc/NavMenu/i18n/gu/README.md) : નેવિગેશન મેનૂ વિવિધ સ્ક્રીન માપો માટે અનુકૂળ
+[Side](../../src/webc/Side/i18n/gu/README.md) : ડ્રોઅર પેનલ્સ કે જે બાજુમાંથી બહાર નીકળે છે
+[Toc](../../src/webc/Toc/i18n/gu/README.md) : ડિરેક્ટરી નેવિગેશન ઘટક
+[Btn](../../src/webc/Btn/i18n/gu/README.md) : સામાન્ય બટન અને રાઉન્ડ આઇકન બટન
+[Card](../../src/webc/Card/i18n/gu/README.md) : સસ્પેન્શનમાં પ્રદર્શિત જમણા તીર સાથે કૅપ્સ્યુલ કાર્ડ
+[H1Txt](../../src/webc/H1Txt/i18n/gu/README.md) : ટેક્સચર શીર્ષક અને વર્ણન
+[Ing](../../src/webc/Ing/i18n/gu/README.md) : લોડિંગ અથવા પ્રોસેસિંગ સ્થિતિનું સૂચક
+[Lg](../../src/webc/Lg/i18n/gu/README.md) : ફ્રોસ્ટેડ ગ્લાસ બેકગ્રાઉન્ડ અને એજ હાઇલાઇટ ઇફેક્ટ
+[MdCss](../../src/webc/MdCss/i18n/gu/README.md) : વાંચન અનુભવ માટે ઑપ્ટિમાઇઝ ટાઇપોગ્રાફી શૈલીઓ
+[NavALi](../../src/webc/NavALi/i18n/gu/README.md) : નેવિગેશન બાર લિંક સૂચિ શૈલી
+[O](../../src/webc/O/i18n/gu/README.md) : તત્વની સામે હોલો ડોટ લોગો દોરો
+[Toast](../../src/webc/Toast/i18n/gu/README.md) : પૃષ્ઠની ધાર પર પોપ-અપ વિન્ડોને પ્રોમ્પ્ટ કરો
+[Back](../../src/webc/Back/i18n/gu/README.md) : પાછળનું બટન
+[Box](../../src/webc/Box/i18n/gu/README.md) : પોપઅપ લેયર બનાવો અને પ્રદર્શિત કરો
+[Md](../../src/webc/Md/i18n/gu/README.md) : માર્કડાઉન ટેક્સ્ટને HTML પર સુરક્ષિત રીતે પાર્સ અને રેન્ડર કરો.
+[Pophover](../../src/webc/Pophover/i18n/gu/README.md) : ફ્લોટિંગ બબલ પ્રોમ્પ્ટ
+[Scroll](../../src/webc/Scroll/i18n/gu/README.md) : વર્ચ્યુઅલ સ્ક્રોલ બાર
+[eloqstore2fkv](../gu/doc/README.md)
+[ચકાસણી પ્રક્રિયા](../gu/doc/workflow.md)
+[C++ oracle](../gu/doc/oracle.md)
+[ખાતાવહી સ્થળાંતર કરો](../gu/doc/ledger.md)
+[કામગીરી](../gu/doc/performance.md)
+[રેકોર્ડની સમીક્ષા કરો](../gu/doc/issues.md)
+[લોગ બદલો](../gu/blog/README.md) : પ્રોજેક્ટ અપડેટ લોગ અને પ્રદર્શન અને સુસંગતતા ફેરફાર એન્ટ્રી
+[2026-11-06: હોમ પેજ પ્રદર્શન કોષ્ટક, સૂચક વિસ્તરણ અને પૃષ્ઠો](../gu/blog/2026-11-06-homepage-and-metrics.md) : હોમ પેજ પ્રદર્શન સરખામણી, મૂલ્યાંકન સૂચક વિસ્તરણ, GitHub પૃષ્ઠો અને બહુ-ભાષા બ્લોગ્સ ઓનલાઇન

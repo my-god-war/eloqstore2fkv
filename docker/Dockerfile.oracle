@@ -1,0 +1,20 @@
+# 基础镜像可覆盖：CI 用 ubuntu:26.04（默认）；某些网络环境下该 tag 拉取极慢。
+# 注意：oracle 要编译 eloqstore 的 <format> 头，需要 g++ >= 13；
+# debian:bookworm-slim（g++ 12）只能用于依赖探测，不能实际构建 oracle。
+ARG ORACLE_BASE=ubuntu:26.04
+FROM ${ORACLE_BASE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake ninja-build git curl ca-certificates pkg-config \
+    libboost-all-dev libjsoncpp-dev libzstd-dev libssl-dev libaio-dev \
+    liburing-dev libgoogle-glog-dev libgflags-dev libcurl4-openssl-dev \
+    clang rsync unzip python3 sudo \
+ && rm -rf /var/lib/apt/lists/*
+
+# eloqstore 以只读 volume 挂到 /src/eloqstore；首次构建：
+#   cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DSKIP_CREATE_BUCKET=ON
+#   cmake --build build -j$(nproc)
+WORKDIR /src/eloqstore
+CMD ["sleep", "infinity"]

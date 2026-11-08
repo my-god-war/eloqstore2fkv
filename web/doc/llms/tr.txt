@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/tr/README.md) : Kapat düğmesiyle açılır bir katman oluşturun ve görüntüleyin
+[Code](../../src/webc/Code/i18n/tr/README.md) : kod düğmesi
+[Copy](../../src/webc/Copy/i18n/tr/README.md) : Metni panoya kopyala
+[Edit](../../src/webc/Edit/i18n/tr/README.md) : düzenle düğmesi
+[I18n](../../src/webc/I18n/i18n/tr/README.md) : Arayüz dillerini değiştirmek için düğmeler ve açılır pencereler
+[Nav](../../src/webc/Nav/i18n/tr/README.md) : Sayfa kaydırıldığında otomatik olarak daraltılan veya genişleyen üst gezinme çubuğu
+[NavL](../../src/webc/NavL/i18n/tr/README.md) : Gezinme menüsünü ve geri dönüş düğmesini otomatik olarak değiştir
+[NavMenu](../../src/webc/NavMenu/i18n/tr/README.md) : Farklı ekran boyutlarına uyarlanmış gezinme menüsü
+[Side](../../src/webc/Side/i18n/tr/README.md) : Yandan dışarı kayan çekmece panelleri
+[Toc](../../src/webc/Toc/i18n/tr/README.md) : Dizin Gezinme Bileşeni
+[Btn](../../src/webc/Btn/i18n/tr/README.md) : Sıradan düğme ve yuvarlak simge düğmesi
+[Card](../../src/webc/Card/i18n/tr/README.md) : Askıda sağ ok gösterilen kapsül kartı
+[H1Txt](../../src/webc/H1Txt/i18n/tr/README.md) : Doku başlığı ve açıklaması
+[Ing](../../src/webc/Ing/i18n/tr/README.md) : Yükleme veya işleme durumu göstergesi
+[Lg](../../src/webc/Lg/i18n/tr/README.md) : Buzlu cam arka plan ve kenar vurgulama efekti
+[MdCss](../../src/webc/MdCss/i18n/tr/README.md) : Okuma deneyimi için optimize edilmiş tipografi stilleri
+[NavALi](../../src/webc/NavALi/i18n/tr/README.md) : Gezinme çubuğu bağlantı listesi stili
+[O](../../src/webc/O/i18n/tr/README.md) : Öğenin önüne içi boş bir nokta logosu çizin
+[Toast](../../src/webc/Toast/i18n/tr/README.md) : Sayfanın kenarındaki açılır pencereyi sor
+[Back](../../src/webc/Back/i18n/tr/README.md) : geri düğmesi
+[Box](../../src/webc/Box/i18n/tr/README.md) : Açılır katman oluşturma ve görüntüleme
+[Md](../../src/webc/Md/i18n/tr/README.md) : Markdown metnini güvenli bir şekilde ayrıştırın ve HTML'ye dönüştürün.
+[Pophover](../../src/webc/Pophover/i18n/tr/README.md) : yüzen kabarcık istemi
+[Scroll](../../src/webc/Scroll/i18n/tr/README.md) : sanal kaydırma çubuğu
+[eloqstore2fkv](../tr/doc/README.md)
+[Doğrulama süreci](../tr/doc/workflow.md)
+[C++ oracle](../tr/doc/oracle.md)
+[Defteri taşı](../tr/doc/ledger.md)
+[Performans](../tr/doc/performance.md)
+[Kayıtları inceleyin](../tr/doc/issues.md)
+[Günlüğü değiştir](../tr/blog/README.md) : Proje güncelleme günlüğü ve performans ve uyumluluk değişikliği girişi
+[2026-11-06: Ana sayfa performans tablosu, gösterge genişletmesi ve Sayfalar](../tr/blog/2026-11-06-homepage-and-metrics.md) : Ana sayfa performans karşılaştırması, değerlendirme göstergesi genişletme, GitHub Sayfaları ve çevrimiçi çok dilli bloglar

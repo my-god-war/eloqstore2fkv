@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/eu/README.md) : Sortu eta bistaratu laster-geruza bat ixteko botoi batekin
+[Code](../../src/webc/Code/i18n/eu/README.md) : kodea botoia
+[Copy](../../src/webc/Copy/i18n/eu/README.md) : Kopiatu testua arbelean
+[Edit](../../src/webc/Edit/i18n/eu/README.md) : editatzeko botoia
+[I18n](../../src/webc/I18n/i18n/eu/README.md) : Interfazearen hizkuntzak aldatzeko botoiak eta pop-up leihoak
+[Nav](../../src/webc/Nav/i18n/eu/README.md) : Orria korritzean automatikoki tolesten edo zabaltzen den goiko nabigazio-barra
+[NavL](../../src/webc/NavL/i18n/eu/README.md) : Aldatu nabigazio menua eta itzultzeko botoia automatikoki
+[NavMenu](../../src/webc/NavMenu/i18n/eu/README.md) : Pantaila tamaina desberdinetara egokitutako nabigazio menua
+[Side](../../src/webc/Side/i18n/eu/README.md) : Albotik ateratzen diren tiradera-panelak
+[Toc](../../src/webc/Toc/i18n/eu/README.md) : Direktorioa nabigatzeko osagaia
+[Btn](../../src/webc/Btn/i18n/eu/README.md) : Botoi arrunta eta ikono biribila
+[Card](../../src/webc/Card/i18n/eu/README.md) : Eskuineko gezia esekituta ageri den kapsularen txartela
+[H1Txt](../../src/webc/H1Txt/i18n/eu/README.md) : Ehunduraren izenburua eta deskribapena
+[Ing](../../src/webc/Ing/i18n/eu/README.md) : Karga edo prozesatzeko egoeraren adierazlea
+[Lg](../../src/webc/Lg/i18n/eu/README.md) : Beira izoztuaren atzeko planoa eta ertz nabarmentzeko efektua
+[MdCss](../../src/webc/MdCss/i18n/eu/README.md) : Irakurketa esperientziarako optimizatutako tipografia-estiloak
+[NavALi](../../src/webc/NavALi/i18n/eu/README.md) : Nabigazio-barrako esteka-zerrenda estiloa
+[O](../../src/webc/O/i18n/eu/README.md) : Marraztu puntu hutsen logotipoa elementuaren aurrean
+[Toast](../../src/webc/Toast/i18n/eu/README.md) : Eskatu pop-up leihoa orriaren ertzean
+[Back](../../src/webc/Back/i18n/eu/README.md) : atzera botoia
+[Box](../../src/webc/Box/i18n/eu/README.md) : Sortu eta bistaratu laster-geruza
+[Md](../../src/webc/Md/i18n/eu/README.md) : Analizatu eta errendatu Markdown testua HTMLra modu seguruan.
+[Pophover](../../src/webc/Pophover/i18n/eu/README.md) : burbuila flotagarria gonbita
+[Scroll](../../src/webc/Scroll/i18n/eu/README.md) : korritze-barra birtuala
+[eloqstore2fkv](../eu/doc/README.md)
+[Egiaztatzeko prozesua](../eu/doc/workflow.md)
+[C++ oracle](../eu/doc/oracle.md)
+[Migratu liburua](../eu/doc/ledger.md)
+[Errendimendua](../eu/doc/performance.md)
+[Erregistroak berrikusi](../eu/doc/issues.md)
+[Aldatu erregistroa](../eu/blog/README.md) : Proiektuaren eguneratze-erregistroa eta errendimenduaren eta bateragarritasunaren aldaketaren sarrera
+[2026-11-06: Hasierako orriaren errendimendu-taula, adierazleen hedapena eta Orrialdeak](../eu/blog/2026-11-06-homepage-and-metrics.md) : Hasierako orriaren errendimenduaren alderaketa, ebaluazio-adierazleen hedapena, GitHub orriak eta hizkuntza anitzeko blogak sarean

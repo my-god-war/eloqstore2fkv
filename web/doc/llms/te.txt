@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/te/README.md) : క్లోజ్ బటన్‌తో పాప్‌అప్ లేయర్‌ని సృష్టించండి మరియు ప్రదర్శించండి
+[Code](../../src/webc/Code/i18n/te/README.md) : కోడ్ బటన్
+[Copy](../../src/webc/Copy/i18n/te/README.md) : వచనాన్ని క్లిప్‌బోర్డ్‌కు కాపీ చేయండి
+[Edit](../../src/webc/Edit/i18n/te/README.md) : సవరించు బటన్
+[I18n](../../src/webc/I18n/i18n/te/README.md) : ఇంటర్‌ఫేస్ భాషలను మార్చడానికి బటన్‌లు మరియు పాప్-అప్ విండోలు
+[Nav](../../src/webc/Nav/i18n/te/README.md) : పేజీ స్క్రోల్ చేసినప్పుడు స్వయంచాలకంగా కుప్పకూలుతుంది లేదా విస్తరిస్తుంది టాప్ నావిగేషన్ బార్
+[NavL](../../src/webc/NavL/i18n/te/README.md) : నావిగేషన్ మెను మరియు రిటర్న్ బటన్‌ను స్వయంచాలకంగా మార్చండి
+[NavMenu](../../src/webc/NavMenu/i18n/te/README.md) : నావిగేషన్ మెను వివిధ స్క్రీన్ పరిమాణాలకు అనుగుణంగా మార్చబడింది
+[Side](../../src/webc/Side/i18n/te/README.md) : వైపు నుండి జారిపోయే డ్రాయర్ ప్యానెల్లు
+[Toc](../../src/webc/Toc/i18n/te/README.md) : డైరెక్టరీ నావిగేషన్ భాగం
+[Btn](../../src/webc/Btn/i18n/te/README.md) : సాధారణ బటన్ మరియు రౌండ్ ఐకాన్ బటన్
+[Card](../../src/webc/Card/i18n/te/README.md) : సస్పెన్షన్‌లో ప్రదర్శించబడిన కుడి బాణంతో క్యాప్సూల్ కార్డ్
+[H1Txt](../../src/webc/H1Txt/i18n/te/README.md) : ఆకృతి శీర్షిక మరియు వివరణ
+[Ing](../../src/webc/Ing/i18n/te/README.md) : లోడింగ్ లేదా ప్రాసెసింగ్ స్థితి యొక్క సూచిక
+[Lg](../../src/webc/Lg/i18n/te/README.md) : తుషార గాజు నేపథ్యం మరియు అంచు హైలైట్ ప్రభావం
+[MdCss](../../src/webc/MdCss/i18n/te/README.md) : టైపోగ్రఫీ శైలులు పఠన అనుభవం కోసం ఆప్టిమైజ్ చేయబడ్డాయి
+[NavALi](../../src/webc/NavALi/i18n/te/README.md) : నావిగేషన్ బార్ లింక్ జాబితా శైలి
+[O](../../src/webc/O/i18n/te/README.md) : మూలకం ముందు బోలు బిందువు లోగోను గీయండి
+[Toast](../../src/webc/Toast/i18n/te/README.md) : పేజీ అంచున పాప్-అప్ విండోను ప్రాంప్ట్ చేయండి
+[Back](../../src/webc/Back/i18n/te/README.md) : వెనుక బటన్
+[Box](../../src/webc/Box/i18n/te/README.md) : పాప్అప్ లేయర్‌ని సృష్టించండి మరియు ప్రదర్శించండి
+[Md](../../src/webc/Md/i18n/te/README.md) : మార్క్‌డౌన్ వచనాన్ని HTMLకి సురక్షితంగా అన్వయించండి మరియు రెండర్ చేయండి.
+[Pophover](../../src/webc/Pophover/i18n/te/README.md) : ఫ్లోటింగ్ బబుల్ ప్రాంప్ట్
+[Scroll](../../src/webc/Scroll/i18n/te/README.md) : వర్చువల్ స్క్రోల్ బార్
+[eloqstore2fkv](../te/doc/README.md)
+[ధృవీకరణ ప్రక్రియ](../te/doc/workflow.md)
+[C++ oracle](../te/doc/oracle.md)
+[మైగ్రేట్ లెడ్జర్](../te/doc/ledger.md)
+[పనితీరు](../te/doc/performance.md)
+[రికార్డులను సమీక్షించండి](../te/doc/issues.md)
+[లాగ్ మార్చండి](../te/blog/README.md) : ప్రాజెక్ట్ అప్‌డేట్ లాగ్ మరియు పనితీరు మరియు అనుకూలత మార్పు నమోదు
+[2026-11-06: హోమ్ పేజీ పనితీరు పట్టిక, సూచిక విస్తరణ మరియు పేజీలు](../te/blog/2026-11-06-homepage-and-metrics.md) : హోమ్ పేజీ పనితీరు పోలిక, మూల్యాంకన సూచిక విస్తరణ, GitHub పేజీలు మరియు ఆన్‌లైన్‌లో బహుళ భాషా బ్లాగులు

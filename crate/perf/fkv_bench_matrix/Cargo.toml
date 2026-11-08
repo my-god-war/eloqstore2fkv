@@ -1,0 +1,19 @@
+[package]
+name = "fkv_bench_matrix"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "redb-style benchmark matrix: C++ simple_bench vs Rust fkv_bench through one trait"
+
+[[bin]]
+name = "fkv_bench_matrix"
+path = "src/main.rs"
+
+[dependencies]
+fkv_perf_cross = { path = "../fkv_perf_cross" }
+libc = "0.2"
+regex = "1.13"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

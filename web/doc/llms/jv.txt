@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/jv/README.md) : Nggawe lan nampilake lapisan popup kanthi tombol cedhak
+[Code](../../src/webc/Code/i18n/jv/README.md) : tombol kode
+[Copy](../../src/webc/Copy/i18n/jv/README.md) : Nyalin teks menyang clipboard
+[Edit](../../src/webc/Edit/i18n/jv/README.md) : tombol sunting
+[I18n](../../src/webc/I18n/i18n/jv/README.md) : Tombol lan jendhela pop-up kanggo ngoper basa antarmuka
+[Nav](../../src/webc/Nav/i18n/jv/README.md) : Bar navigasi ndhuwur sing otomatis ambruk utawa nggedhekake nalika kaca digulung
+[NavL](../../src/webc/NavL/i18n/jv/README.md) : Ngalih kanthi otomatis menu navigasi lan tombol bali
+[NavMenu](../../src/webc/NavMenu/i18n/jv/README.md) : Menu navigasi diadaptasi kanggo ukuran layar sing beda
+[Side](../../src/webc/Side/i18n/jv/README.md) : Panel laci sing geser metu saka sisih
+[Toc](../../src/webc/Toc/i18n/jv/README.md) : Komponen Navigasi Direktori
+[Btn](../../src/webc/Btn/i18n/jv/README.md) : Tombol biasa lan tombol lambang bunder
+[Card](../../src/webc/Card/i18n/jv/README.md) : Kertu kapsul kanthi panah tengen ditampilake ing penundaan
+[H1Txt](../../src/webc/H1Txt/i18n/jv/README.md) : Judhul tekstur lan deskripsi
+[Ing](../../src/webc/Ing/i18n/jv/README.md) : Indikator status loading utawa pangolahan
+[Lg](../../src/webc/Lg/i18n/jv/README.md) : Latar mburi kaca es lan efek sorot pinggir
+[MdCss](../../src/webc/MdCss/i18n/jv/README.md) : Gaya tipografi dioptimalake kanggo pengalaman maca
+[NavALi](../../src/webc/NavALi/i18n/jv/README.md) : Gaya dhaptar link bar navigasi
+[O](../../src/webc/O/i18n/jv/README.md) : Gambar logo titik kothong ing ngarepe unsur
+[Toast](../../src/webc/Toast/i18n/jv/README.md) : Jendhela pop-up cepet ing pinggir kaca
+[Back](../../src/webc/Back/i18n/jv/README.md) : tombol mburi
+[Box](../../src/webc/Box/i18n/jv/README.md) : Nggawe lan nampilake lapisan popup
+[Md](../../src/webc/Md/i18n/jv/README.md) : Parse kanthi aman lan render teks Markdown menyang HTML.
+[Pophover](../../src/webc/Pophover/i18n/jv/README.md) : pituduh gelembung ngambang
+[Scroll](../../src/webc/Scroll/i18n/jv/README.md) : gulung bar virtual
+[eloqstore2fkv](../jv/doc/README.md)
+[Proses verifikasi](../jv/doc/workflow.md)
+[C++ oracle](../jv/doc/oracle.md)
+[Migrasi ledger](../jv/doc/ledger.md)
+[Kinerja](../jv/doc/performance.md)
+[Review cathetan](../jv/doc/issues.md)
+[Ngganti log](../jv/blog/README.md) : Log nganyari proyek lan entri pangowahan kinerja lan kompatibilitas
+[2026-11-06: Tabel kinerja kaca ngarep, ekspansi indikator lan Kaca](../jv/blog/2026-11-06-homepage-and-metrics.md) : Perbandingan kinerja kaca ngarep, ekspansi indikator evaluasi, Kaca GitHub lan blog multi-basa online

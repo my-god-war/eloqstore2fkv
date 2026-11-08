@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/mk/README.md) : Креирајте и прикажете скокачки слој со копче за затворање
+[Code](../../src/webc/Code/i18n/mk/README.md) : копче за код
+[Copy](../../src/webc/Copy/i18n/mk/README.md) : Копирај текст во таблата со исечоци
+[Edit](../../src/webc/Edit/i18n/mk/README.md) : копче за уредување
+[I18n](../../src/webc/I18n/i18n/mk/README.md) : Копчиња и скокачки прозорци за префрлување јазици на интерфејсот
+[Nav](../../src/webc/Nav/i18n/mk/README.md) : Горна лента за навигација која автоматски се собира или се шири кога страницата се лизга
+[NavL](../../src/webc/NavL/i18n/mk/README.md) : Автоматско менување на менито за навигација и копче за враќање
+[NavMenu](../../src/webc/NavMenu/i18n/mk/README.md) : Мени за навигација прилагодено на различни големини на екранот
+[Side](../../src/webc/Side/i18n/mk/README.md) : Панели за фиоки што се лизгаат од страна
+[Toc](../../src/webc/Toc/i18n/mk/README.md) : Компонента за навигација во директориумот
+[Btn](../../src/webc/Btn/i18n/mk/README.md) : Обично копче и копче за тркалезна икона
+[Card](../../src/webc/Card/i18n/mk/README.md) : Картичка со капсула со десна стрелка прикажана во суспензија
+[H1Txt](../../src/webc/H1Txt/i18n/mk/README.md) : Наслов и опис на текстурата
+[Ing](../../src/webc/Ing/i18n/mk/README.md) : Индикатор за статусот на вчитување или обработка
+[Lg](../../src/webc/Lg/i18n/mk/README.md) : Заднина од матирано стакло и ефект на истакнување на рабовите
+[MdCss](../../src/webc/MdCss/i18n/mk/README.md) : Стилови на типографија оптимизирани за читање
+[NavALi](../../src/webc/NavALi/i18n/mk/README.md) : Стил на листа на врски со лентата за навигација
+[O](../../src/webc/O/i18n/mk/README.md) : Нацртајте лого со шуплива точка пред елементот
+[Toast](../../src/webc/Toast/i18n/mk/README.md) : Побарајте скокачки прозорец на работ на страницата
+[Back](../../src/webc/Back/i18n/mk/README.md) : копче за назад
+[Box](../../src/webc/Box/i18n/mk/README.md) : Креирајте и прикажете скокачки слој
+[Md](../../src/webc/Md/i18n/mk/README.md) : Безбедно анализирајте и прикажувајте Markdown текст во HTML.
+[Pophover](../../src/webc/Pophover/i18n/mk/README.md) : промпт за лебдечки меур
+[Scroll](../../src/webc/Scroll/i18n/mk/README.md) : виртуелна лента за лизгање
+[eloqstore2fkv](../mk/doc/README.md)
+[Процес на верификација](../mk/doc/workflow.md)
+[C++ oracle](../mk/doc/oracle.md)
+[Мигрирајте ја книгата](../mk/doc/ledger.md)
+[Перформанси](../mk/doc/performance.md)
+[Прегледајте ги записите](../mk/doc/issues.md)
+[Променете го дневникот](../mk/blog/README.md) : Дневник за ажурирање на проектот и внесување на промени во перформансите и компатибилноста
+[2026-11-06: Табела за перформанси на почетната страница, проширување на индикаторот и Страници](../mk/blog/2026-11-06-homepage-and-metrics.md) : Споредба на перформансите на почетната страница, проширување на индикаторот за евалуација, GitHub страници и повеќејазични блогови на интернет

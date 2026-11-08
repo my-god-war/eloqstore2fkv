@@ -1,0 +1,32 @@
+[BoxX](../../src/webc/BoxX/i18n/el/README.md) : Δημιουργήστε και εμφανίστε ένα αναδυόμενο επίπεδο με ένα κουμπί κλεισίματος
+[Code](../../src/webc/Code/i18n/el/README.md) : κουμπί κωδικού
+[Copy](../../src/webc/Copy/i18n/el/README.md) : Αντιγραφή κειμένου στο πρόχειρο
+[Edit](../../src/webc/Edit/i18n/el/README.md) : κουμπί επεξεργασίας
+[I18n](../../src/webc/I18n/i18n/el/README.md) : Κουμπιά και αναδυόμενα παράθυρα για εναλλαγή γλωσσών διεπαφής
+[Nav](../../src/webc/Nav/i18n/el/README.md) : Κορυφαία γραμμή πλοήγησης που συμπτύσσεται ή επεκτείνεται αυτόματα κατά την κύλιση της σελίδας
+[NavL](../../src/webc/NavL/i18n/el/README.md) : Αυτόματη εναλλαγή μενού πλοήγησης και κουμπί επιστροφής
+[NavMenu](../../src/webc/NavMenu/i18n/el/README.md) : Μενού πλοήγησης προσαρμοσμένο σε διαφορετικά μεγέθη οθόνης
+[Side](../../src/webc/Side/i18n/el/README.md) : Πάνελ συρταριών που γλιστρούν από το πλάι
+[Toc](../../src/webc/Toc/i18n/el/README.md) : Στοιχείο πλοήγησης καταλόγου
+[Btn](../../src/webc/Btn/i18n/el/README.md) : Συνηθισμένο κουμπί και κουμπί στρογγυλού εικονιδίου
+[Card](../../src/webc/Card/i18n/el/README.md) : Κάρτα κάψουλας με δεξί βέλος που εμφανίζεται σε αναστολή
+[H1Txt](../../src/webc/H1Txt/i18n/el/README.md) : Τίτλος υφής και περιγραφή
+[Ing](../../src/webc/Ing/i18n/el/README.md) : Ένδειξη κατάστασης φόρτωσης ή επεξεργασίας
+[Lg](../../src/webc/Lg/i18n/el/README.md) : Φόντο από παγωμένο γυαλί και εφέ τονισμού των άκρων
+[MdCss](../../src/webc/MdCss/i18n/el/README.md) : Στυλ τυπογραφίας βελτιστοποιημένα για εμπειρία ανάγνωσης
+[NavALi](../../src/webc/NavALi/i18n/el/README.md) : Στυλ λίστας συνδέσμων γραμμής πλοήγησης
+[O](../../src/webc/O/i18n/el/README.md) : Σχεδιάστε ένα λογότυπο με κούφια κουκκίδα μπροστά από το στοιχείο
+[Toast](../../src/webc/Toast/i18n/el/README.md) : Αναδυόμενο παράθυρο προτροπής στην άκρη της σελίδας
+[Back](../../src/webc/Back/i18n/el/README.md) : κουμπί πίσω
+[Box](../../src/webc/Box/i18n/el/README.md) : Δημιουργία και εμφάνιση αναδυόμενου στρώματος
+[Md](../../src/webc/Md/i18n/el/README.md) : Αναλύστε με ασφάλεια και αποδώστε το κείμενο Markdown σε HTML.
+[Pophover](../../src/webc/Pophover/i18n/el/README.md) : αιωρούμενη φυσαλίδα
+[Scroll](../../src/webc/Scroll/i18n/el/README.md) : εικονική γραμμή κύλισης
+[eloqstore2fkv](../el/doc/README.md)
+[Διαδικασία επαλήθευσης](../el/doc/workflow.md)
+[C++ oracle](../el/doc/oracle.md)
+[Μετανάστευση καθολικού](../el/doc/ledger.md)
+[Απόδοση](../el/doc/performance.md)
+[Επανεξέταση αρχείων](../el/doc/issues.md)
+[Αλλαγή αρχείου καταγραφής](../el/blog/README.md) : Αρχείο καταγραφής ενημερώσεων έργου και καταχώριση αλλαγών απόδοσης και συμβατότητας
+[2026-11-06: Πίνακας απόδοσης αρχικής σελίδας, επέκταση δείκτη και Σελίδες](../el/blog/2026-11-06-homepage-and-metrics.md) : Σύγκριση απόδοσης αρχικής σελίδας, επέκταση δεικτών αξιολόγησης, Σελίδες GitHub και ιστολόγια πολλών γλωσσών στο διαδίκτυο

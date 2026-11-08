@@ -1,0 +1,147 @@
+name: oracle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crate/fkv_compat/**"
+      - "tool/fkv_ledger/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "COMPAT_BASELINE"
+      - "doc/**"
+      - "fixtures/**"
+      - "issue/**"
+      - "scripts/check_baseline_sync.sh"
+      - "scripts/check_issue_links.sh"
+      - "scripts/check_progress_board.sh"
+      - ".github/workflows/oracle.yml"
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * 3"
+
+env:
+  FKV_REPO: webc-site/fkv
+
+jobs:
+  compat-rust:
+    name: compat-rust
+    runs-on: ubuntu-latest
+    env:
+      # 缺语料必须失败，不能静默 skip（gap-08）。
+      FKV_REQUIRE_ORACLE_FIXTURES: "1"
+    steps:
+      - name: assert 4 KiB page size
+        run: test "$(getconf PAGESIZE)" = 4096
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+      - name: checkout fkv
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.FKV_REPO }}
+          path: fkv
+      - name: link sibling fkv
+        run: ln -s "$GITHUB_WORKSPACE/fkv" "$GITHUB_WORKSPACE/../fkv"
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      - run: cargo fmt --all -- --check
+      # 改 COMPAT_BASELINE 必须同批刷新 44 份 meta 的 baseline= 与 doc/progress.md。
+      - name: 检查基线快照同步
+        run: bash scripts/check_baseline_sync.sh --check
+      # issue 归档目录（done/new/reviewed/reject）移动后引用必须跟着改；缺失
+      # 判定记录同样阻断（scripts/check_issue_links.sh --fix 只改状态前缀）。
+      - name: 检查 issue 链接
+        run: bash scripts/check_issue_links.sh --check
+      # doc/progress.md 由 `fkv_ledger report` 生成。账本 DB（.data/）不入 git，
+      # GitHub runner 上无法整文件重放（verified 等手工状态不在可提交声明里），
+      # 因此先校验可复现的看板小节与 ignored 口径；有本地账本的环境里再由同一
+      # 脚本整文件 diff（忽略生成时间）。校验逻辑只在
+      # scripts/check_progress_board.sh 维护，本地与 CI 共用，避免两处漂移。
+      - name: 检查 doc/progress.md 看板与 ignored 口径
+        run: bash scripts/check_progress_board.sh --check
+      - run: cargo nextest run -p fkv_compat --no-tests=pass
+      - run: cargo test -p fkv_ledger
+
+  fixture-diff:
+    name: fixture-diff
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      EKV_ELOQSTORE_PATH: ${{ github.workspace }}/eloqstore
+      # 语料缺失 / 未生成必须失败（gap-08）。
+      FKV_REQUIRE_ORACLE_FIXTURES: "1"
+    steps:
+      - name: assert 4 KiB page size
+        run: test "$(getconf PAGESIZE)" = 4096
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+      - name: checkout fkv
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.FKV_REPO }}
+          path: fkv
+      - name: link sibling fkv
+        run: ln -s "$GITHUB_WORKSPACE/fkv" "$GITHUB_WORKSPACE/../fkv"
+      - name: read baseline
+        id: baseline
+        run: |
+          commit=$(awk 'NR == 1 {print $3}' COMPAT_BASELINE)
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "baseline=$commit"
+      - uses: actions/checkout@v7
+        with:
+          repository: eloqdata/eloqstore
+          ref: ${{ steps.baseline.outputs.commit }}
+          path: eloqstore
+          submodules: recursive
+      - name: build oracle
+        run: |
+          docker compose -f docker/docker-compose.yml run --rm oracle bash -lc '
+            set -e
+            ELOQSTORE_SRC=/src/eloqstore bash /src/eloqstore2fkv/cpp/oracle/build.sh /data/fkv_oracle
+          '
+      # oracle 在容器内构建，但 fixture 生成在 host 上执行；安装共享库运行时。
+      - name: install oracle runtime deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgoogle-glog-dev libgflags-dev libzstd-dev
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      - name: 生成 fixtures/cpp
+        run: |
+          cp .data/oracle/fkv_oracle /tmp/fkv_oracle
+          chmod +x /tmp/fkv_oracle
+          cargo run -p fkv_ledger -- fixture --matrix --oracle /tmp/fkv_oracle --out fixtures/cpp
+      - name: 检查 fixtures/cpp 漂移
+        run: git diff --exit-code -- fixtures/cpp
+      - name: Rust 侧兼容测试
+        run: cargo nextest run -p fkv_compat --no-tests=pass
+      - name: fkv_ledger verify
+        run: |
+          cargo run -p fkv_ledger -- verify --fixtures fixtures/cpp \
+            --oracle /tmp/fkv_oracle --report fixture-cpp-report.md
+      - name: 反向 fixture
+        run: |
+          cargo run -p fkv_ledger -- fixture --rust --matrix --out fixtures/rust
+          cargo run -p fkv_ledger -- verify --fixtures fixtures/rust \
+            --oracle /tmp/fkv_oracle --report fixture-rust-report.md
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cpp-fixtures
+          path: |
+            fixtures/cpp
+            fixtures/rust
+            fixture-cpp-report.md
+            fixture-rust-report.md
+          if-no-files-found: error
