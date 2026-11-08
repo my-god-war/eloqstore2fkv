@@ -5,6 +5,8 @@ import "../../H1Txt.js";
 import "../../Card.js";
 import {
   DOC_LINKS,
+  PERF_CONFIG,
+  PERF_HAS_ROCKSDB,
   PERF_MATRIX_ROWS,
   PERF_META,
   PERF_NOTE,
@@ -64,21 +66,18 @@ const page = () => {
 
   table_wrap.className = "HomeTableWrap";
   table.className = "HomeTable";
-  tr_head.append(
-    cell("th", "阶段"),
-    cell("th", "Rust fkv"),
-    cell("th", "C++ EloqStore"),
-    cell("th", "fkv / C++")
-  );
+  tr_head.append(cell("th", "阶段"), cell("th", "Rust fkv"), cell("th", "C++ EloqStore"));
+  if (PERF_HAS_ROCKSDB) tr_head.append(cell("th", "RocksDB"));
+  tr_head.append(cell("th", "fkv / C++"));
+  if (PERF_HAS_ROCKSDB) tr_head.append(cell("th", "fkv / RocksDB"));
   thead.append(tr_head);
-  for (const [phase, fkv, cpp, ratio, tone] of PERF_MATRIX_ROWS) {
+  for (const [phase, fkv, cpp, rocksdb, ratio, ratio_rocksdb, tone] of PERF_MATRIX_ROWS) {
     const tr = newEl("tr");
-    tr.append(
-      cell("td", phase),
-      cell("td", dash(fkv)),
-      cell("td", dash(cpp)),
-      cell("td", dash(ratio), tone === "bad" ? "HomeSlow" : "HomeSpeed")
-    );
+    tr.append(cell("td", phase), cell("td", dash(fkv)), cell("td", dash(cpp)));
+    if (PERF_HAS_ROCKSDB) tr.append(cell("td", dash(rocksdb)));
+    tr.append(cell("td", dash(ratio), tone === "bad" ? "HomeSlow" : "HomeSpeed"));
+    if (PERF_HAS_ROCKSDB)
+      tr.append(cell("td", dash(ratio_rocksdb), tone === "bad" ? "HomeSlow" : "HomeSpeed"));
     tbody.append(tr);
   }
   table.append(thead, tbody);
@@ -90,7 +89,27 @@ const page = () => {
   note_link.href = baseUrl("/doc/performance");
   note_link.textContent = "查看口径";
   note.append(PERF_NOTE + " ", note_link);
-  perf_sec.append(table_wrap, note);
+  // 配置分三块（机器 / 测试负载 / RocksDB 列），放表格下面，不再是单行灰字。
+  const config_area = newEl("div");
+  config_area.className = "HomeConfig";
+  for (const [title, item_li] of Object.entries(PERF_CONFIG)) {
+    const card = newEl("div");
+    card.className = "HomeConfigCard";
+    const h3 = newEl("h3");
+    h3.textContent = title;
+    const dl = newEl("dl");
+    for (const [name, value] of item_li) {
+      const dt = newEl("dt");
+      dt.textContent = name;
+      const dd = newEl("dd");
+      dd.textContent = value;
+      dl.append(dt, dd);
+    }
+    card.append(h3, dl);
+    config_area.append(card);
+  }
+
+  perf_sec.append(table_wrap, config_area, note);
 
   const verify_sec = section("验证状态"),
     verify_bar = newEl("div");

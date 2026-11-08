@@ -73,6 +73,9 @@ C++ 引擎选择:
   --removals <n>         删除 key 数（redb 默认 500000）
   --phase-timeout-secs <n> 单个外部进程的墙钟上限（默认 1800；0 关闭）
   --samples <n>           读/scan/len 重复次数，取中位数（redb 默认 3）
+  --phases <list>         只跑这些阶段族（逗号分隔，如 random_reads）
+  --rocksdb-lib <so>      可选 RocksDB 参考引擎（同一个 C bench ABI 的 .so）
+  --merge <a.json,b.json> 只做合并：把多个分片报告合成一份 markdown + JSON
   --markdown <out.md>   额外写一份 Markdown 报告
   --json <out.json>     额外写一份 JSON 报告
   -h, --help            显示本帮助
@@ -197,6 +200,8 @@ pub struct MatrixConfig {
   pub samples: usize,
   /// 只跑这些阶段族（`bulk_load` / `random_reads` / ...）；`None` = 全跑。
   pub only_phases: Option<Vec<String>>,
+  /// 可选 RocksDB 参考引擎（同一个 C ABI 的 .so，`--rocksdb-lib`）。
+  pub rocksdb_lib: Option<PathBuf>,
   /// 每个外部进程的墙钟上限（秒）；0 表示不设上限。
   pub phase_timeout_secs: u64,
 }
@@ -1847,25 +1852,35 @@ struct PhaseRow {
   cpp: Option<PhaseResult>,
   #[serde(skip_serializing_if = "Option::is_none")]
   fkv: Option<PhaseResult>,
+  /// RocksDB 参考列（`--rocksdb-lib` 未给时为 None）。
+  #[serde(skip_serializing_if = "Option::is_none")]
+  rocksdb: Option<PhaseResult>,
   #[serde(skip_serializing_if = "Option::is_none")]
   ratio: Option<f64>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  ratio_rocksdb: Option<f64>,
   #[serde(skip_serializing_if = "Option::is_none")]
   cpp_note: Option<String>,
   #[serde(skip_serializing_if = "Option::is_none")]
   fkv_note: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  rocksdb_note: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SizeRow {
   cpp: Option<u64>,
   fkv: Option<u64>,
+  rocksdb: Option<u64>,
   ratio: Option<f64>,
+  ratio_rocksdb: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CompactionTiming {
   cpp_secs: Option<f64>,
   fkv_secs: Option<f64>,
+  rocksdb_secs: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2012,6 +2027,7 @@ fn measure_compaction(
 fn run_matrix(
   cpp: &dyn BenchEngine,
   fkv: &dyn BenchEngine,
+  rocksdb: Option<&dyn BenchEngine>,
   cfg: &MatrixConfig,
 ) -> Result<MatrixReport, String> {
   let mut phases = Vec::new();
@@ -2019,24 +2035,45 @@ fn run_matrix(
     eprintln!("[matrix] {} ...", phase.label());
     let cpp_result = run_optional(cpp, phase, cfg)?;
     let fkv_result = run_optional(fkv, phase, cfg)?;
+    let rocksdb_result = match rocksdb {
+      Some(engine) => run_optional(engine, phase, cfg)?,
+      None => None,
+    };
     let cpp_note = cpp_result.is_none().then(|| "N/A".to_owned());
     let fkv_note = fkv_result.is_none().then(|| "N/A".to_owned());
+    let rocksdb_note = rocksdb
+      .is_some()
+      .then(|| rocksdb_result.is_none().then(|| "N/A".to_owned()))
+      .flatten();
     phases.push(PhaseRow {
       phase: phase.label(),
       ratio: ratio(
         fkv_result.as_ref().map(|result| result.throughput),
         cpp_result.as_ref().map(|result| result.throughput),
       ),
+      ratio_rocksdb: ratio(
+        fkv_result.as_ref().map(|result| result.throughput),
+        rocksdb_result.as_ref().map(|result| result.throughput),
+      ),
       cpp: cpp_result,
       fkv: fkv_result,
+      rocksdb: rocksdb_result,
       cpp_note,
       fkv_note,
+      rocksdb_note,
     });
   }
 
   eprintln!("[matrix] compaction sizes ...");
   let (cpp_before, cpp_after, cpp_compact) = measure_compaction(cpp, cfg)?;
   let (fkv_before, fkv_after, fkv_compact) = measure_compaction(fkv, cfg)?;
+  let rocksdb_sizes = match rocksdb {
+    Some(engine) => {
+      let (before, after, compact) = measure_compaction(engine, cfg)?;
+      Some((before, after, compact))
+    }
+    None => None,
+  };
 
   Ok(MatrixReport {
     config: ConfigSummary {
@@ -2064,16 +2101,27 @@ fn run_matrix(
     uncompacted_size: SizeRow {
       cpp: Some(cpp_before),
       fkv: Some(fkv_before),
+      rocksdb: rocksdb_sizes.map(|(before, ..)| before),
       ratio: ratio(Some(fkv_before as f64), Some(cpp_before as f64)),
+      ratio_rocksdb: rocksdb_sizes
+        .map(|(before, ..)| ratio(Some(fkv_before as f64), Some(before as f64)))
+        .unwrap_or_default(),
     },
     compacted_size: SizeRow {
       cpp: Some(cpp_after),
       fkv: Some(fkv_after),
+      rocksdb: rocksdb_sizes.map(|(_, after, _)| after),
       ratio: ratio(Some(fkv_after as f64), Some(cpp_after as f64)),
+      ratio_rocksdb: rocksdb_sizes
+        .map(|(_, after, _)| ratio(Some(fkv_after as f64), Some(after as f64)))
+        .unwrap_or_default(),
     },
     compaction: CompactionTiming {
       cpp_secs: cpp_compact.map(|duration| duration.as_secs_f64()),
       fkv_secs: fkv_compact.map(|duration| duration.as_secs_f64()),
+      rocksdb_secs: rocksdb_sizes
+        .and_then(|(_, _, compact)| compact)
+        .map(|duration| duration.as_secs_f64()),
     },
   })
 }
@@ -2156,9 +2204,19 @@ impl MatrixReport {
       self.config.scan_bytes
     );
     out.push('\n');
-    // fkv 是第一列：操作数口径下 ratio = fkv / C++，> 1 表示 fkv 更快。
-    out.push_str("| 阶段 | fkv | EloqStore (C++) | fkv / C++ |\n");
-    out.push_str("|---|---:|---:|---:|\n");
+    // fkv 是第一列：操作数口径下 ratio = fkv / 对方，> 1 表示 fkv 更快。
+    // 有 `--rocksdb-lib` 时多一列 RocksDB 参考引擎（缓存配置与两侧对齐）。
+    let has_rocksdb = self
+      .phases
+      .iter()
+      .any(|row| row.rocksdb.is_some() || row.rocksdb_note.is_some());
+    if has_rocksdb {
+      out.push_str("| 阶段 | fkv | EloqStore (C++) | RocksDB | fkv / C++ | fkv / RocksDB |\n");
+      out.push_str("|---|---:|---:|---:|---:|---:|\n");
+    } else {
+      out.push_str("| 阶段 | fkv | EloqStore (C++) | fkv / C++ |\n");
+      out.push_str("|---|---:|---:|---:|\n");
+    }
     for row in &self.phases {
       let faster_side = match (&row.cpp, &row.fkv) {
         (Some(cpp), Some(fkv)) if cpp.throughput != fkv.throughput => {
@@ -2166,40 +2224,86 @@ impl MatrixReport {
         }
         _ => None,
       };
+      let faster_rocksdb = match (&row.rocksdb, &row.fkv) {
+        (Some(rocksdb), Some(fkv)) if rocksdb.throughput != fkv.throughput => {
+          Some(fkv.throughput > rocksdb.throughput)
+        }
+        _ => None,
+      };
       let ratio = match (&row.cpp, &row.fkv) {
         (Some(cpp), Some(fkv)) if cpp.throughput > 0.0 => Some(fkv.throughput / cpp.throughput),
         _ => None,
       };
-      let _ = writeln!(
-        out,
-        "| {} | {} | {} | {} |",
-        row.phase,
-        fmt_phase_cell(
-          row.fkv.as_ref(),
-          row.fkv_note.as_deref(),
-          faster_side == Some(true)
-        ),
-        fmt_phase_cell(
-          row.cpp.as_ref(),
-          row.cpp_note.as_deref(),
-          faster_side == Some(false)
-        ),
-        fmt_ratio(ratio)
-      );
+      if has_rocksdb {
+        let _ = writeln!(
+          out,
+          "| {} | {} | {} | {} | {} | {} |",
+          row.phase,
+          fmt_phase_cell(
+            row.fkv.as_ref(),
+            row.fkv_note.as_deref(),
+            faster_side == Some(true)
+          ),
+          fmt_phase_cell(
+            row.cpp.as_ref(),
+            row.cpp_note.as_deref(),
+            faster_side == Some(false)
+          ),
+          fmt_phase_cell(
+            row.rocksdb.as_ref(),
+            row.rocksdb_note.as_deref(),
+            faster_rocksdb == Some(false)
+          ),
+          fmt_ratio(ratio),
+          fmt_ratio(row.ratio_rocksdb)
+        );
+      } else {
+        let _ = writeln!(
+          out,
+          "| {} | {} | {} | {} |",
+          row.phase,
+          fmt_phase_cell(
+            row.fkv.as_ref(),
+            row.fkv_note.as_deref(),
+            faster_side == Some(true)
+          ),
+          fmt_phase_cell(
+            row.cpp.as_ref(),
+            row.cpp_note.as_deref(),
+            faster_side == Some(false)
+          ),
+          fmt_ratio(ratio)
+        );
+      }
     }
+    let size_columns = |row: &SizeRow| -> String {
+      if has_rocksdb {
+        format!(
+          "{} | {} | {} | {} | {}",
+          size_cell(row.fkv),
+          size_cell(row.cpp),
+          size_cell(row.rocksdb),
+          fmt_ratio(row.ratio),
+          fmt_ratio(row.ratio_rocksdb)
+        )
+      } else {
+        format!(
+          "{} | {} | {}",
+          size_cell(row.fkv),
+          size_cell(row.cpp),
+          fmt_ratio(row.ratio)
+        )
+      }
+    };
     let _ = writeln!(
       out,
-      "| uncompacted size | {} | {} | {} |",
-      size_cell(self.uncompacted_size.fkv),
-      size_cell(self.uncompacted_size.cpp),
-      fmt_ratio(self.uncompacted_size.ratio)
+      "| uncompacted size | {} |",
+      size_columns(&self.uncompacted_size)
     );
     let _ = writeln!(
       out,
-      "| compacted size | {} | {} | {} |",
-      size_cell(self.compacted_size.fkv),
-      size_cell(self.compacted_size.cpp),
-      fmt_ratio(self.compacted_size.ratio)
+      "| compacted size | {} |",
+      size_columns(&self.compacted_size)
     );
     let cpp_compact = self
       .compaction
@@ -2344,6 +2448,7 @@ struct Args {
   phases: Option<Vec<String>>,
   /// 只做合并：把多个分片运行的 JSON 合成一份 markdown + JSON。
   merge: Option<Vec<PathBuf>>,
+  rocksdb_lib: Option<PathBuf>,
   phase_timeout_secs: Option<u64>,
   markdown: Option<PathBuf>,
   json: Option<PathBuf>,
@@ -2408,6 +2513,7 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
       | "--samples"
       | "--phases"
       | "--merge"
+      | "--rocksdb-lib"
       | "--phase-timeout-secs"
       | "--markdown"
       | "--json" => {
@@ -2500,6 +2606,10 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
           "--samples" => {
             ensure_unset(&parsed.samples, &arg)?;
             parsed.samples = Some(parse_usize(&arg, &value)?);
+          }
+          "--rocksdb-lib" => {
+            ensure_unset(&parsed.rocksdb_lib, &arg)?;
+            parsed.rocksdb_lib = Some(PathBuf::from(value));
           }
           "--merge" => {
             ensure_unset(&parsed.merge, &arg)?;
@@ -2713,6 +2823,7 @@ fn resolve_config(args: Args) -> Result<(CppBackend, PathBuf, MatrixConfig), Str
       removals,
       samples,
       only_phases: args.phases,
+      rocksdb_lib: args.rocksdb_lib,
       phase_timeout_secs,
     },
   ))
@@ -2790,7 +2901,14 @@ fn run() -> Result<(), CliError> {
     CppBackend::Bin(bin) => Box::new(CppEngine::new(bin)),
   };
   let fkv = FkvEngine::new(rust_bin);
-  let report = run_matrix(cpp.as_ref(), &fkv, &cfg).map_err(CliError::Failed)?;
+  let rocksdb: Option<Box<dyn BenchEngine>> = match cfg.rocksdb_lib.clone() {
+    Some(lib) => Some(Box::new(CppFfiEngine::new(&lib).map_err(|err| {
+      CliError::Failed(format!("load --rocksdb-lib {}: {err}", lib.display()))
+    })?)),
+    None => None,
+  };
+  let report =
+    run_matrix(cpp.as_ref(), &fkv, rocksdb.as_deref(), &cfg).map_err(CliError::Failed)?;
 
   let markdown = report.to_markdown();
   print!("{markdown}");
@@ -2853,6 +2971,7 @@ mod tests {
       removals: 1000,
       samples: 1,
       only_phases: None,
+      rocksdb_lib: None,
       phase_timeout_secs: 1800,
     }
   }

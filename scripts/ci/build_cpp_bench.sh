@@ -315,8 +315,10 @@ if [ "${CPP_BENCH_WITH_FFI:-0}" = "1" ]; then
     echo "build_cpp_bench: FFI configure 失败（CPP_BENCH_WITH_FFI=1）" >&2
     exit 1
   fi
-  if ! run_tool "$CMAKE" --build "$FFI_BUILD_DIR" --target fkv_bench_ffi -j "$JOBS" >&2; then
-    echo "build_cpp_bench: 编译 libfkv_bench_ffi 失败。完整日志见 $FFI_BUILD_DIR" >&2
+  # RocksDB 参考引擎是可选目标：依赖系统 librocksdb，找不到时 CMake 会跳过，
+  # 矩阵退化成两列而不是整轮失败。
+  if ! run_tool "$CMAKE" --build "$FFI_BUILD_DIR" --target fkv_bench_ffi rocksdb_bench_ffi -j "$JOBS" >&2; then
+    echo "build_cpp_bench: 编译 FFI 失败。完整日志见 $FFI_BUILD_DIR" >&2
     exit 1
   fi
 fi

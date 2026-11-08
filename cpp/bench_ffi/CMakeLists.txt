@@ -51,3 +51,27 @@ set_target_properties(fkv_bench_ffi PROPERTIES
 if(UNIX AND NOT APPLE)
   target_link_options(fkv_bench_ffi PRIVATE "-Wl,--copy-dt-needed-entries")
 endif()
+
+# ---------------------------------------------------------------------------
+# RocksDB 参考引擎：同一个 C ABI（bench_ffi.h），矩阵用 `--rocksdb-lib` 加载。
+#
+# 依赖系统 RocksDB（Ubuntu 的 `librocksdb-dev`）；找不到就跳过，矩阵会退化成
+# 两列（fkv / EloqStore），不会让整个 perf 流程失败。
+# ---------------------------------------------------------------------------
+find_path(ROCKSDB_INCLUDE_DIR rocksdb/db.h)
+find_library(ROCKSDB_LIBRARY NAMES rocksdb)
+if(ROCKSDB_INCLUDE_DIR AND ROCKSDB_LIBRARY)
+  add_library(rocksdb_bench_ffi SHARED rocksdb_ffi.cpp bench_ffi.h)
+  target_include_directories(rocksdb_bench_ffi PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${ROCKSDB_INCLUDE_DIR}"
+  )
+  target_link_libraries(rocksdb_bench_ffi PRIVATE "${ROCKSDB_LIBRARY}")
+  set_target_properties(rocksdb_bench_ffi PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN YES
+  )
+  message(STATUS "rocksdb_bench_ffi: ${ROCKSDB_LIBRARY}")
+else()
+  message(STATUS "rocksdb_bench_ffi: 跳过（未找到 rocksdb/db.h 或 librocksdb）")
+endif()

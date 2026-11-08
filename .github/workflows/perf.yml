@@ -167,12 +167,23 @@ jobs:
           bin=$(bash scripts/ci/build_rust_bench.sh)
           test -x "$bin"
           echo "RUST_BENCH=$bin" >> "$GITHUB_ENV"
+      - name: install rocksdb
+        # RocksDB 参考引擎列：系统包即可（适配器只用稳定的 C++ API）。
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq librocksdb-dev
+
       - name: build C++ FFI shim
         run: |
           CPP_BENCH_WITH_FFI=1 bash scripts/ci/build_cpp_bench.sh >/dev/null
-          lib=$(find "${CPP_FFI_BUILD_DIR:-$HOME/.cache/fkv-perf/cpp-ffi-build}" -type f -name 'libfkv_bench_ffi.so*' | head -n 1)
+          dir="${CPP_FFI_BUILD_DIR:-$HOME/.cache/fkv-perf/cpp-ffi-build}"
+          lib=$(find "$dir" -type f -name 'libfkv_bench_ffi.so*' | head -n 1)
           test -n "$lib"
           echo "CPP_FFI_LIB=$lib" >> "$GITHUB_ENV"
+          rlib=$(find "$dir" -type f -name 'librocksdb_bench_ffi.so*' | head -n 1)
+          if [ -n "$rlib" ]; then
+            echo "ROCKSDB_FFI_LIB=$rlib" >> "$GITHUB_ENV"
+          else
+            echo "::warning::未构建出 librocksdb_bench_ffi，矩阵只有两列"
+          fi
       - name: run redb-style matrix
         run: |
           # 口径对齐 RocksDB 官方评测（PERFORMANCE-BENCHMARK）而不是 redb 的
@@ -187,6 +198,7 @@ jobs:
           cargo run --release -p fkv_bench_matrix -- \
             --cpp-lib "$CPP_FFI_LIB" \
             --rust-bin "$RUST_BENCH" \
+            ${ROCKSDB_FFI_LIB:+--rocksdb-lib "$ROCKSDB_FFI_LIB"} \
             --workdir "$RUNNER_TEMP/fkv-matrix" \
             --profile redb \
             --rows 25000000 --bulk-rows 25000000 \

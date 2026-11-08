@@ -112,36 +112,92 @@ def zh_label(label: str) -> str:
     return label
 
 
-def build_rows(report: dict) -> list[str]:
+def build_rows(report: dict) -> tuple[list[str], bool]:
+    """行格式：[阶段, fkv, C++, RocksDB, fkv/C++, fkv/RocksDB, tone?]。"""
     rows: list[str] = []
+    has_rocksdb = any(row.get("rocksdb") for row in report["phases"])
     phases = sorted(report["phases"], key=lambda row: _order_key(row["phase"]))
     for row in phases:
         label = zh_label(row["phase"])
-        cpp = cell(row.get("cpp"))
         fkv = cell(row.get("fkv"))
+        cpp = cell(row.get("cpp"))
+        rocks = cell(row.get("rocksdb"))
         ratio = ops_ratio(row)
+        rocks_ratio = row.get("ratio_rocksdb")
         tone = ""
         if row["phase"] in THROUGHPUT_PHASES and ratio is not None and ratio < BAD_RATIO_BELOW:
             tone = ', "bad"'
-        # fkv 是第一列（与表格 / 网页表头一致）。
         rows.append(
-            f'  ["{label}", "{fkv}", "{cpp}", {fmt_ratio(ratio)}{tone}]'
+            f'  ["{label}", "{fkv}", "{cpp}", "{rocks}", '
+            f'{fmt_ratio(ratio)}, {fmt_ratio(rocks_ratio)}{tone}]'
         )
 
-    for label, key in (("未压实体积", "uncompacted_size"),
-                       ("压实后体积", "compacted_size")):
+    for label, key in (("未压实体积", "uncompacted_size"), ("压实后体积", "compacted_size")):
         block = report[key]
         rows.append(
-            f'  ["{label}", "{size_cell(block["fkv"])}", '
-            f'"{size_cell(block["cpp"])}", {fmt_ratio(block.get("ratio"))}]'
+            f'  ["{label}", "{size_cell(block.get("fkv"))}", '
+            f'"{size_cell(block.get("cpp"))}", "{size_cell(block.get("rocksdb"))}", '
+            f'{fmt_ratio(block.get("ratio"))}, {fmt_ratio(block.get("ratio_rocksdb"))}]'
         )
 
     cpp_secs = report["compaction"].get("cpp_secs")
     fkv_secs = report["compaction"].get("fkv_secs")
+    rocks_secs = report["compaction"].get("rocksdb_secs")
     fkv_cell = "—" if fkv_secs is None else f"{fkv_secs:.3f} s"
     cpp_cell = "—" if cpp_secs is None else f"{cpp_secs:.3f} s"
-    rows.append(f'  ["压实耗时", "{fkv_cell}", "{cpp_cell}", null]')
-    return rows
+    rocks_cell = "—" if rocks_secs is None else f"{rocks_secs:.3f} s"
+    rows.append(f'  ["压实耗时", "{fkv_cell}", "{cpp_cell}", "{rocks_cell}", null, null]')
+    return rows, has_rocksdb
+
+
+def build_config(report: dict, run_id: str, date: str, has_rocksdb: bool) -> str:
+    """表下三块配置：机器 / 测试负载 / RocksDB 列（各自成块，不挤成一行）。"""
+    cfg = report["config"]
+    rows = cfg["rows"]
+    data_mib = rows * cfg["kv_size"] / (1024 * 1024)
+    cache_mib = cfg["cache_bytes"] / (1024 * 1024)
+    ratio = data_mib / max(cache_mib, 1.0)
+    readers = "/".join(str(r) for r in cfg["readers"])
+    blocks = [
+        ("机器", [
+            ["runner", "GitHub Actions ubuntu-latest (x86_64)"],
+            ["页大小", "4 KiB"],
+            ["日期", date],
+            ["来源", f"CI run {run_id}"],
+            ["口径", "三个引擎同机、同轮次、同一份数据形状"],
+        ]),
+        ("测试负载", [
+            ["数据量", f"{rows:,} 行 × {cfg['kv_size']} B ≈ {data_mib:.0f} MiB"],
+            ["缓存/引擎", f"{cache_mib:.0f} MiB（数据 ≈ {ratio:.1f}× 缓存）"],
+            ["key / value", f"{cfg['key_size']} B / {cfg['kv_size'] - cfg['key_size']} B（db_bench 默认）"],
+            ["点读", f"{cfg['reads']:,} 次（并发 {readers}）"],
+            ["范围读", f"{cfg['scans']:,} 次 × {cfg['scan_len']} 条"],
+            ["删除", f"{cfg['removals']:,} 条"],
+            ["采样", f"每阶段 {max(cfg['samples'], 1)} 次"],
+            ["分区", "单分区（EloqStore num_threads=1）"],
+        ]),
+        ("RocksDB 列", ([
+            ["版本", "CI 系统包 librocksdb-dev"],
+            ["block cache", f"{cache_mib:.0f} MiB LRU（与两侧缓存同额）"],
+            ["block size", "4 KiB"],
+            ["index/filter", "cache_index_and_filter_blocks=true（同池）"],
+            ["压缩", "kNoCompression（三侧都不压缩）"],
+            ["持久化", "WAL 开、WriteOptions.sync=false（RocksDB 默认）"],
+            ["memtable", "write_buffer_size 64 MiB"],
+            ["注意", "EloqStore 与 fkv 每批固定 fsync，写阶段多付同步"],
+        ] if has_rocksdb else [["状态", "本次未启用（--rocksdb-lib 未加载）"]])),
+    ]
+    body = "{\n"
+    for title, item_li in blocks:
+        body += f"  {json.dumps(title, ensure_ascii=False)}: [\n"
+        for name, value in item_li:
+            body += (
+                f"    [{json.dumps(name, ensure_ascii=False)}, "
+                f"{json.dumps(value, ensure_ascii=False)}],\n"
+            )
+        body += "  ],\n"
+    body += "}"
+    return body
 
 
 def build_meta(report: dict, run_id: str, date: str) -> str:
@@ -163,8 +219,11 @@ def build_meta(report: dict, run_id: str, date: str) -> str:
 
 def replace_block(text: str, name: str, body: str) -> str:
     """把 `export const <name> = ...;` 整块替换成 `body`（其余内容原样保留）。"""
+    # 支持数组 / 对象 / 字符串 / 布尔四种块。
     pattern = re.compile(
-        rf"(export const {name} =\s*)(?:\[[\s\S]*?\];|\"(?:[^\"\\]|\\.)*\";)",
+        r"(export const "
+        + re.escape(name)
+        + r" =\s*)(?:\[[\s\S]*?\];|\{[\s\S]*?\};|\"(?:[^\"\\]|\\.)*\";|true;|false;)",
         re.MULTILINE,
     )
     if not pattern.search(text):
@@ -192,8 +251,15 @@ def main() -> None:
         count=1,
     )
     text = replace_block(text, "PERF_META", f'"{build_meta(report, args.run_id, args.date)}";')
-    rows = "[\n" + ",\n".join(build_rows(report)) + "\n];"
+    row_li, has_rocksdb = build_rows(report)
+    rows = "[\n" + ",\n".join(row_li) + "\n];"
     text = replace_block(text, "PERF_MATRIX_ROWS", rows)
+    text = replace_block(
+        text, "PERF_HAS_ROCKSDB", "true;" if has_rocksdb else "false;"
+    )
+    text = replace_block(
+        text, "PERF_CONFIG", build_config(report, args.run_id, args.date, has_rocksdb)
+    )
     Path(args.perf_js).write_text(text)
     print(f"updated {args.perf_js} from {args.json} (run {args.run_id})")
 
