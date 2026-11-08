@@ -209,7 +209,7 @@ ELOQSTORE_SRC=/path/to/eloqstore bash scripts/gen_fixtures.sh
 
 - V2/V4（含续写 / 引擎级）未系统化执行；`COMPAT_BASELINE` 证据行与本目录
   `meta.txt` `baseline=` 字段的口径修订见
-  `issue/reviewed/eng-91-compat-baseline-evidence-line-stale-and-baked-into-fixtures.md`。
+  `（已完成记录已清理）`。
 - branch + large value：C++ `CreateBranch` 不写 snapshot 的可选 segment 段，
   Rust 为保留 large value 继承仍写；字节差异与决策见
-  `issue/reviewed/02-cpp-create-branch-omits-segment-mapping.md`。
+  `（已完成记录已清理）`。

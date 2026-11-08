@@ -72,7 +72,7 @@ standby manifest 选择 + `ExpiredTerm` 栅栏、rsync 缺源映射、`clear_loc
 
 | # | 能力 | C++ (file:line) | Rust 现状 | 性质 | 阶段 |
 |---|---|---|---|---|---|
-| M1 | **index 页首访 single-flight（WaitingZone）** | 同页并发首访合并为一次 IO（`task.h:246-261`、`task.cpp:492-556`、`page_manager.cpp:706-722`） | **缺失**：`PageCache` 无在飞去重，N 个并发读同一未缓存页各读一次（云端下载层有 `single_flight` 可复用） | 完全缺失（未登记） | **L2** |
+| M1 | **index 页首访 single-flight（WaitingZone）** | 同页并发首访合并为一次 IO（`task.h:246-261`、`task.cpp:492-556`、`page_manager.cpp:706-722`） | **缺失**：`IndexCache` 无在飞去重，N 个并发读同一未缓存 index 页各读一次（云端下载层有 `single_flight` 可复用） | 完全缺失（未登记） | **L2** |
 | M2 | **compact 协作让出** | 每文件 / 每 256 mapping `MaybeYield`/`YieldToLowPQ`（`background_write.cpp:68-91,172-190,238`） | `fkv_task_compact` **全文件无 `YieldBudget`**，CPU 规划/排序段不让出 | 语义不等价（未登记） | **L2** |
 | M3 | 指标标签集（4 个 `global_*` + `unknown`） | `eloq_store.h:40-112` 共 23 标签 | 19 标签（`fkv_metrics/src/lib.rs:127-147`），缺全局操作 | 完全缺失（未登记） | **L2** |
 | M4 | gauge：index buffer pool limit / open file count(±limit) / local space limit | `eloqstore_metrics.h:47-53` | 只有 used 类，无 limit | 完全缺失（未登记） | L3 |
@@ -104,10 +104,10 @@ GC/archive/replay 的协作让出、`retain_mapped` 等价 swizzle 复用、fixe
    `ProcessTerm()` 取值口径，再改 `fkv_recovery`/`manifest` 的抬升逻辑；
    **l2-05 已结案**：`ProcessTerm()` = 运行任务 shard term，Local 被强制 0 ⇒
    C++ 判据与 fkv 等价，差异改为登记（Local term 口径 l2-05a + 两处 Rust 单侧加固
-   l2-05a/l2-05b），不改代码；见 `issue/reviewed/l2-05-term-bump-and-reopen-max-fp-id.md`；
+   l2-05a/l2-05b），不改代码；见 `（已完成记录已清理）`；
 6. **F5 + F6**（`MappingTbl::resize` 回填、`manifest_limit=0`）——manifest 逐字节等价的最后两块；
    **l2-06 已完成**：F6 对齐 C++（恒 snapshot）并加测试锁定，F5 判定保留 Rust 回填 +
-   回写 `COMPAT_BASELINE` 跳表 core-29（见 `issue/reviewed/l2-06-mapping-resize-backfill-and-manifest-limit-zero.md`）；
+   回写 `COMPAT_BASELINE` 跳表 core-29（见 `（已完成记录已清理）`）；
 7. **F1 + F7**（zstd 版本 pin + 字典抽样）——仅在要求**压缩盘面逐字节等价**时才做，
    否则登记为「压缩体不保证逐字节等价」；
    **l2-07 已结案并登记**：Rust 侧 `mzstd =0.2.11` / `zstd =0.14.3` / `zstd-sys =2.1.2`
@@ -140,7 +140,7 @@ GC/archive/replay 的协作让出、`retain_mapped` 等价 swizzle 复用、fixe
 | 单进程多 data store shard（`AttachShard`/`partition_filter`/detach fanout） | 面向 C++ 云上多租户宿主；fkv 以「每进程/每 Runtime 一身份」实现同一能力，**路由口径已对齐**。1:1 需要不存在的外部宿主 |
 | `sdk_runtime`（KVCacheManager/Worker 共享内存池 + IPC）、bthread `EloqModule`、`test_utils` | C++ 宿主/测试脚手架，不含用户可见数据面能力 |
 | `GlobalRegisteredMemory`（含 ABA 空闲栈、`SetEvictFunc`）、`direct_io_buffer_pool_size`、`pinned_tail_scratch_slots`、`gc_global_mem_size_per_shard` | io_uring registered-memory / KV Cache 模式设施；已核实 `SetEvictFunc` **生产零调用点**，GRM 留空即关闭。fkv 用 per-shard 注册 + 调用方 `FixedBuffer` 覆盖 |
-| 用户态页 buffer pool、页级 pin、swizzle、data page cache（含其命中计数） | Rust 由单一 `PageCache`（物理页键 + Clock 引用位）承担，命中即零拷贝；reopen 不再复用缓存（整体清空，性能面有意差异）。`enable_data_page_cache` 在 C++ 默认 false |
+| 用户态页 buffer pool、页级 pin、swizzle、data page cache（含其命中计数） | Rust 由 `IndexCache`（Clock + 代际 + `CacheLedger`）+ 内核 page cache 承担；`retain_mapped` 已等价实现 swizzle 的 reopen 复用。`enable_data_page_cache` 在 C++ 默认 false |
 | 「buffer pool 耗尽 → `OutOfMem` → 回滚重试」 | 前提是用户态池有硬字节上界；Rust 瞬态分配模型下无该触发源，引入即等于反向引入用户态池。**须登记为「资源上界不同」** |
 | `chunk_size` | 已核实 C++ 引擎源码内**无读取点**（仅局部同名变量），是宿主/KV Cache 字段，不是对齐缺失 |
 | `coroutine_stack_size`、`segment_compact_yield_every`、`cloud_request_threads` | 调度/线程模型，Rust executor 与单后台线程模型不同，1:1 无意义（Rust 用时间预算替代让出粒度） |

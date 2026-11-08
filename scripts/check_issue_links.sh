@@ -60,11 +60,7 @@ if not baseline_path.is_file():
     raise SystemExit(2)
 
 STATE_DIRS = ("done", "new", "reviewed", "reject")
-# 覆盖两种写法：`issue/<state>/<name>.md` 与相对写法 `../<state>/<name>.md`
-# （早期轮次索引表的 `../done/...` 形式——此前不被正则覆盖，是 doc-17 的门禁盲区）。
-LINK_RE = re.compile(
-    r"(?:issue/|\.\./)(done|new|reviewed|reject)/([A-Za-z0-9][A-Za-z0-9_.\-]*\.md)"
-)
+LINK_RE = re.compile(r"issue/(done|new|reviewed|reject)/([A-Za-z0-9][A-Za-z0-9_.\-]*\.md)")
 
 
 def target_files():

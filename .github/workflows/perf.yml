@@ -142,7 +142,9 @@ jobs:
     name: perf-matrix (C++ FFI + fkv)
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_baseline != 'true' && github.event.inputs.run_matrix == 'true'
     runs-on: ${{ github.event.inputs.runner_label || vars.PERF_RUNNER_LABEL || 'ubuntu-latest' }}
-    timeout-minutes: 150
+    # redb 口径：5M bulk load + 1M 数据集 × (1M 点读 / 500k range scan) × 3 次
+    # 中位数 + compaction。磁盘吞吐决定耗时，给足时间。
+    timeout-minutes: 300
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
     steps:
@@ -173,21 +175,39 @@ jobs:
           echo "CPP_FFI_LIB=$lib" >> "$GITHUB_ENV"
       - name: run redb-style matrix
         run: |
+          # 口径对齐 RocksDB 官方评测（PERFORMANCE-BENCHMARK）而不是 redb 的
+          # "缓存装得下" 条件：官方是 97 GiB 数据库 / 6 GiB block cache ≈ 16:1，
+          # 读走盘才是数据库的真实工况。
+          #   - key / value 用 db_bench 默认 16 B / 100 B（kv_size=116）；
+          #   - 指标行与 redb 的 benchmark 表一致（bulk load / individual writes /
+          #     batch writes / len() / random reads 1-32 线程 / random range reads /
+          #     removals / 未压实与压实体积）；
+          #   - 数据 25M 行 ≈ 2.9 GiB，缓存 256 MiB → 数据 / 缓存 ≈ 11:1。
+          # --phase-timeout-secs 1800：任何阶段卡死 30 分钟即报错退出。
           cargo run --release -p fkv_bench_matrix -- \
             --cpp-lib "$CPP_FFI_LIB" \
             --rust-bin "$RUST_BENCH" \
             --workdir "$RUNNER_TEMP/fkv-matrix" \
-            --rows 200000 --batch-size 1000 --kv-size 128 \
-            --read-secs 5 --readers 1,4,8,16,32 \
+            --profile redb \
+            --rows 25000000 --bulk-rows 25000000 \
+            --batch-size 1000 --batch-writes 100 \
+            --individual-writes 1000 --removals 500000 \
+            --kv-size 116 --key-size 16 \
+            --reads 1000000 --scans 500000 --scan-len 10 \
+            --readers 1,4,8,16,32 --samples 1 \
+            --cache-bytes 268435456 \
+            --phase-timeout-secs 1800 \
             --markdown "$RUNNER_TEMP/fkv-matrix.md" \
             --json "$RUNNER_TEMP/fkv-matrix.json"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: perf-matrix-${{ github.run_id }}
+          # 阶段日志也上传：矩阵失败/超时时不必再靠重跑来定位卡在哪一步。
           path: |
             ${{ runner.temp }}/fkv-matrix.md
             ${{ runner.temp }}/fkv-matrix.json
+            ${{ runner.temp }}/fkv-matrix/*/logs/**
           if-no-files-found: warn
 
   perf-baseline:

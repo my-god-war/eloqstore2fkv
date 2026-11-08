@@ -56,14 +56,15 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   mapping，branch manifest 无 segment 段；Rust 为保留 large value 继承与跨分支
   segment file_id 区间隔离仍写该段，属有意差异，不纳入逐字节等价
   （判定记录未随仓库迁移保留；结论与两侧证据见本条）。
-- 用户态 buffer pool / 页级 pin / swizzle 直取快路径均不做 1:1（有意偏离，
-  rev-41）——fkv 以**单一 `PageCache`**（物理 `FilePageId` 键、Clock + 引用位
-  淘汰、读写共用单池，`fkv_store/src/page_cache.rs`）承担 C++ buffer pool 的
-  可观测语义：index 与 data 页同池命中即零拷贝返回 `PageRef::Shared`，批出口 /
-  compaction / reopen / truncate / 回滚全量失效，开启与关闭产出逐字节相同盘面
-  （`fkv_store/tests/page_cache.rs` 差分锁定，sem-65）；segment 侧不缓存；
-  data / segment 文件与 C++ `IouringMgr` 一样默认 O_DIRECT（manifest 仍
-  buffered，io-21）；
+- 用户态 buffer pool / 页级 pin / WaitingZone（首访 single-flight）/ swizzle
+  直取快路径 / data page cache 均不做 1:1（有意偏离，rev-41）——index 侧由
+  `IndexCache`（Clock+代际+CacheLedger）替代；data 写路径自 `38c2735` 起另由
+  `WritePageCache`（`Store::with_write_cache_bytes` 门控，预算同源
+  `buffer_pool_size`，`fkv_store/src/write_cache.rs`）替代——同样按物理落点
+  缓存的纯读缓存，批出口 / compaction / reopen / truncate / 回滚全量失效，
+  开启与关闭产出逐字节相同盘面（`fkv_store/tests/write_cache.rs` 差分锁定，
+  sem-65）；data 读路径与 segment 侧仍无缓存；data / segment 文件与 C++
+  `IouringMgr` 一样默认 O_DIRECT（manifest 仍 buffered，io-21）；
   `enable_data_page_cache` 为解析不生效的死旋钮（INI 面兼容保留，sto-57）。
   判定与重开条件见本条（判定记录未随仓库迁移保留）。
 - O_DIRECT 不可用时按路径类别回退 buffered（io-18，Rust 单侧容错）：C++ 没有
@@ -200,7 +201,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   返回 `NotFound` 属预期，不得判为 fkv 错误；同输入下保留集合也与 C++ 死代码
   不同（C++ 按文件计数且 `std::sort` 非稳定、同 tag 保留哪份不确定，不作为
   对齐目标）。行为锁定测试 `fkv_store/tests/archive_retention.rs`，判定记录见
-  issue/reviewed/sem-02-archive-retention-prune.md。
+  （已完成记录已清理）。
 - `DeleteBranch` 的归档删除面（C++ Local / Cloud 自身不一致）：C++ Local
   `IouringMgr::DeleteBranchFiles`（`src/async_io_manager.cpp:3053-3140`）从
   `CURRENT_TERM_<branch>_<shard>` 读 `max_term`，只删
@@ -220,25 +221,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   删 data 对象 vs Local / fkv 留给 GC 属最终一致差异，不构成正确性差异。行为
   锁定测试：`fkv_store/src/archive/mod.rs` 的
   `delete_branch_removes_branch_archives`，判定记录见
-  issue/reviewed/sem-27-delete-branch-archive-divergence.md。
-- CURRENT_TERM 文件内容解析边界（sem-70，**fkv 严格拒绝为期望行为**）：
-  C++ 有两个语义互相不一致的解析器——local `ParseBranchTerm`
-  （`include/common.h:565-590`）不 trim、逐字符判数字，`"5\n"`/`"+5"` 非法
-  → IoFail，空文件经调用点 `n > 0` 前置**按 term 0 静默继续**
-  （`async_io_manager.cpp:3082-3085`）；cloud `ReadTermFile`
-  （`async_io_manager.cpp:5058-5103`）trim 后 `std::stoull` **前缀语义**
-  （`"5x"` → 5、`"+5"` → 5、空 → Corrupted）。fkv 单解析器全后端共用
-  （`fkv_io_compio/src/term.rs` 的 `parse`，cloud 复用同语义）：trim 首尾
-  空白 + 严格全解析，空 / 非数字 / 前缀 / 正号 / 溢出均 `Corrupted`。
-  差分口径：畸形 / 外部篡改的 term 文件内容**不判 fkv 错误**——C++ 任一侧
-  的接受行为（local 空文件按 0 继续、cloud 前缀解析）均非对齐目标；两侧
-  写路径均为规范十进制 + tmp/rename/fsync，合法产物跨实现交接安全。
-  消费点差异随条登记：空 term 文件下 C++ local Drop 分支成功（按 term 0
-  删）、fkv Drop 先 read_term fencing → `Corrupted` 整体失败——fkv 的
-  拒绝是期望行为。行为锁定测试：`fkv_io_compio/src/term.rs` 内联单测
-  `parse_accepts_canonical_and_trimmed_decimal` /
-  `parse_rejects_malformed_content`（空 / 空白 / `5x` / `+5` / 溢出五形态）。
-  判定记录见 issue/reviewed/sem-70-current-term-content-parse-three-way.md。
+  （已完成记录已清理）。
 - branch file id 预留：Rust `create_branch` 为每个新 branch 预留一个 1024 file id
   块（`BRANCH_FILE_RESERVE_FILE_NUM`），C++ `CreateBranch` 不预留。块基址全局单调：
   取「所有 manifest（含 main 活跃 manifest）已承诺块上界」与「父分支高水位 / 下一次
@@ -264,7 +247,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   输入校验。差分口径：该输入不得以 C++ `NoError` 为对齐目标，也不得用其建分支
   后的盘面做比较；合法新 branch 名不受影响。行为锁定测试
   `fkv_store/src/archive/mod.rs` 的 `create_branch_rejects_main_and_active`，判定记录见
-  issue/reviewed/sem-29-create-branch-main-active-divergence.md。
+  （已完成记录已清理）。
 - 归档重开的追加水位：`reopen_archive` 只回滚可见状态（mapping / root），data
   侧 Append 与 segment（大 value，恒 Append）追加水位都保留在活跃状态已写完的
   位置之后（pooled-11 / pooled-12）。归档 manifest 的 `max_fp_id` /
@@ -350,7 +333,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   清理 record 的分批边界与 C++ 单轮全量扫描不同；该差异只影响清理批的切分，
   不改变可见值集合。行为锁定测试：`fkv_btree` / `fkv_store` 的 TTL 写路径
   过期丢弃用例（merge 丢弃、页字节、overflow/段释放、ttl_read_filter=false
-  写后不可见）。判定记录见 issue/reviewed/sem-50-write-path-expired-entry-retention.md。
+  写后不可见）。判定记录见 （已完成记录已清理）。
 - 点位读输出契约（请求层有意差异，sem-34）：C++ `ReadRequest` 的默认形态是
   metadata-only——`large_value_dest_` 为 `std::monostate` 时
   `Read(..., extract_metadata=true)` 不读 segment，large entry 的 `value_` 只
@@ -450,7 +433,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `crate/engine/fkv_runtime/tests/standby.rs` 的
   `replica_catches_up_segment_files_and_serves_get_large`（master 写大 value →
   replica 追赶后本地存在 `segment_*` 且 `get_large` 成功）。判定记录见
-  issue/reviewed/sem-61-standby-rsync-segment-include.md（与本仓既有
+  （已完成记录已清理）（与本仓既有
   sem-61-compact-file-order-and-record-split 仅编号撞车，非同一条）。
 - 以下 C++ 性能/资源旋钮在 Rust 侧解析但不生效（`KvOption::validate` 对非默认值
   告警）：`enable_data_page_cache`、`init_page_count`、`coroutine_stack_size`、
@@ -487,7 +470,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   行为锁定测试 `fkv_runtime/tests/archive_crond.rs` 的
   `archive_crond_uses_global_tick` 与 `fkv_runtime/src/archive.rs` 的
   `shutdown_bounded_while_archive_in_flight`，判定记录见
-  issue/reviewed/rt-01-archive-crond-global-tick.md。
+  （已完成记录已清理）。
 - 云 manifest 采纳语义（branch 过滤 / ExpiredTerm 栅栏 / promote）：C++ 基线
   `CloudStoreMgr::GetManifest`（`src/async_io_manager.cpp:4607-4730`）在
   `(active_branch, process_term)` 未命中后列举 `manifest_` 前缀回退：跳过带 tag
@@ -539,7 +522,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `install_external_snapshot_selects_latest_term`（无栅栏路径），以及
   `fkv_shard/src/lifecycle.rs` 单测
   `expired_term_marks_shard_expired_and_fast_fails`。判定记录见
-  issue/reviewed/sem-04-cloud-manifest-adoption-fence.md。
+  （已完成记录已清理）。
 - Cloud branch 活跃 manifest 对象名（attach term 命名 + 回退采纳 + 剪枝，
   sem-60）：C++ attach 后 branch 的全部读写换到
   `(GetActiveBranch(), ProcessTerm())` 名下——`CreateBranch` 落
@@ -579,8 +562,8 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `manifest_B_T` 与冷启动回退链 / `_0` 采纳 + 写时晋升种子 / 剪枝 / Local 恒
   `_0` / `ExpiredTerm` 栅栏 / drop 不复活 / branch drop 遇列举失败零删除 +
   evict 后重试清扫）。判定记录见
-  issue/reviewed/sem-60-cloud-branch-manifest-name-term.md 与
-  issue/reviewed/sem-63-drop-table-branch-list-fail-skips-evict.md。
+  （已完成记录已清理） 与
+  （已完成记录已清理）。
 - 证据：format 层 7 类 22 个 case 已有真实双向语料——C++ 写 → Rust 读
   （`fixtures/cpp`）与 Rust 写 → C++ 读（`fixtures/rust`）；CI `fixture-diff`
   按 baseline 重新生成并 `git diff --exit-code fixtures/cpp` 检查漂移。
@@ -664,47 +647,6 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
      `fkv_config/tests/config.rs` 的
      `ini_empty_section_is_accepted_as_present`、
      `ini_section_name_whitespace_is_trimmed`。
-  10) 配置零值边界（sem-69）：三个形态两个口径。
-     - `data_page_restart_interval = 0`：C++ 无范围检查可启动（每条 entry
-       都是 restart 点的合法退化格式，`data_page_builder.h` 的
-       `counter_ >= interval` 恒真）；fkv `validate` 拒绝
-       （`fkv_config/src/lib.rs` 的 restart interval 零值检查）。**有意从严**：
-       全 restart 页是病态配置（索引无加速意义），fail-fast 优于静默退化；
-       C++ 产物 fkv 可读（restart 点页内自描述），互读不受影响。
-     - `data_page_size = 0` / `0KB`：C++ 字段级静默回 4096 启动
-       （`kv_options.cpp` 的 `(parsed_size > 0) ? parsed_size : (1 << 12)`）；
-       fkv 字段存 0 后 `validate` 拒绝。**有意从严**（sem-06 第 5 项只覆盖
-       「解析失败回 0」，本形态是「合法 0 被 C++ 替换为默认」）。
-     - `data_file_size = 0`：**已对齐**（fkv `0b87909` 起）：两侧都按 8 MiB
-       派生（C++ 字段级 `(parsed_size > 0) ? parsed_size : (8 * MB)`；fkv
-       派生点 `size == 0` 时取 `8 * MB`），同一 INI 同一布局。此前 fkv 回退
-       单页（shift 0 + warn）属无心差异。行为锁定测试：
-       `fkv_config/tests/config.rs` 的
-       `ini_data_file_size_zero_falls_back_to_8mb`。
-  11) cloud 模式配置改写集（sem-69）：C++ `ValidateOptions` cloud 分支两步
-     改写——`local_space_limit` 低于单数据文件时抬到 `data_file_bytes`、
-     `fd_limit` 按 `max_cached_files = local_space_limit / data_file_bytes`
-     钳制（`eloq_store.cpp:318-338`）；fkv `validate` 无这两步，本地 cache
-     预算改为全局字节记账（`CacheGroup::new(local_space_limit)` 逐出）、
-     fd 上界独立（`store_fd_limit / num_threads` 均分）。**资源模型替代**
-     （非语义缺失）：同一 INI 在 C++ 被改写 fd_limit / local_space_limit、
-     在 fkv 原值生效，但资源保护目标由另一机制达成；盘面 / 数据面不受影响。
-  12) INI 扩展键清单补全（sem-69 + sem-75）：fkv `[Ext]` 宏共 19 个键，C++
-     `LoadFromIni` 对它们全部零读取（只能代码 / C API 设置）。按后果分三类：
-     - **布局类**（同一 INI 两侧写出不可互读的布局）：`segment_size` /
-       `segments_per_file_shift` / `pages_per_file_shift` / `enable_local_standby`；
-     - **行为类**（影响请求 / 维护时序与重试预算，盘面不变）：
-       `auto_reopen_retry_times` / `auto_reopen_pending_time_us` /
-       `auto_oom_retry_times` / `max_processing_time_us` / `yield_budget_us` /
-       `request_timeout_us` / `request_queue_timeout_us`（后两者为数据面
-       deadline / 入队等待上界；`0` = 不设上界，与 C++ 无限阻塞同形）；
-     - **容量类**（内存预算，盘面不变）：`page_cache_bytes` /
-       `segment_file_amplify_factor`。
-     三类在 fkv `[Ext]` 两节均可且实测生效（接线点见 `fkv_runtime::startup` /
-     `fkv_config` 的 `kv_options!` 宏）。前三个直接决定盘面布局（段大小 / 每段文件段数 / 每
-     数据文件页数）：同一 INI 在 C++ 按默认（256KB / 7 / 11@4KB）启动、在
-     fkv 按显式值生效，两侧写出不可互读的布局。差分口径：含这些键的 INI
-     不得按「两侧同配置」跑差分；Rust -> C++ 迁移需改用代码 / C API 设置。
   不在本轮范围、保持现状的 inih 行为：`INI_ALLOW_MULTILINE=1` 的续行
   （缩进行拼到上一个键）、无 `=`/`:` 行在 C++ 报错而 Rust 跳过、
   `MAX_SECTION` / `MAX_NAME` 50 字节截断、节行 `]` 后的尾随内容。
@@ -770,38 +712,11 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   其它 -> `IoFail`（`src/async_io_manager.cpp:1505-1532` 的 errno 映射）。
   Rust 启动不建根（分区目录首次写入时懒创建），故根不存在（`NotFound`）按
   空根处理；`PermissionDenied -> NoPermission`、其它 `IoFail` 整轮回错。
-  启动期的根处理偏离有**两条**：「根不存在」（启动期不建根，避免对只读挂载点
-  写入）与 **sem-73 的 Cloud 非空本地根**（见下条）；若运维期望「盘未挂载」也
-  报错，需另行对齐 C++ `InitStoreSpace` 的启动建根。
-- Cloud 启动对**非空本地根**的接受面（sem-73，**Rust 更宽松**）：C++
-  `EloqStore::InitStoreSpace` 在 Cloud 模式且 `allow_reuse_local_caches = false`
-  （默认，`include/kv_options.h`）时，若本地根非空则 `Start` 直接以
-  `InvalidArgs` 失败（`src/eloq_store.cpp:1178-1196`；上游全部 cloud 重启类测试
-  都显式置 `allow_reuse_local_caches = true`，如 `tests/cloud.cpp:439,517,572`）；
-  fkv 无此启动检查：`Runtime::start` 只投影该旋钮并按表**懒清**本地缓存
-  （`fkv_runtime/src/startup.rs` / `backend.rs` 投影；首访表时
-  `fkv_cloud/src/prewarm.rs:19-28` → `invalidate_local_file_li` 清该表本地文件，
-  锁定测试 `fkv_cloud/tests/cloud/evict.rs` 的 reuse/local-cache 组），启动本身
-  成功。差异只在**启动接受面与清理时机**（fkv 懒、C++ 急切且拒启），不改盘面
-  格式 / 对象命名 / 可见数据；差分器的「cloud 重启 + 非空本地根 + 默认旋钮」
-  输入不得以 C++ 的启动失败为期望。重开条件：fkv 引入启动期非空根检查，
-  或 C++ 放开该限制。
+  已知偏离仅限「根不存在」这一条（启动期不建根，避免对只读挂载点写入）；
+  若运维期望「盘未挂载」也报错，需另行对齐 C++ `InitStoreSpace` 的启动建根。
   例外（两侧一致）：`GlobalListArchiveTags` 对不可读根 / 分区目录静默跳过，
   不整轮失败。行为锁定测试：`fkv_runtime/tests/store_path.rs` 的空根 / 缺失根
   / 多根部分缺失 / chmod 000 根四例。
-- 预热失败的重试语义（**有意加固**，sem-39 轮异步域登记）：C++
-  `PrewarmService::PrewarmLoop`（`src/tasks/prewarm_task.cpp:277`）一次 job 驱动，
-  DiskFull / 列举失败即收尾，**不自重试**（下次 attach / reopen 再触发，
-  `src/eloq_store.cpp:1055`、`src/tasks/reopen_task.cpp:121`）；fkv 的预热 crond
-  **自唤醒重试**（`tick` 返回 `listing_failed || !pending.is_empty()`），首轮
-  50ms、连续失败退避翻倍封顶 1s（`fkv_runtime/src/prewarm.rs:48-49,412-431`），
-  持续失败下以 ≤1s 周期无限重试（每轮一次全量远端分区列举，速率有界、非空转）。
-  取舍：避免远端短抖动导致永久未预热；DiskFull 可因淘汰回收而自愈。差异只在
-  **失败后的重试节奏**（fkv 自动恢复 / C++ 等下一次触发），盘面与对象集不变。
-  行为锁定测试：`fkv_runtime/src/prewarm_tests.rs` 的
-  `failed_table_retries_without_external_signal`、
-  `shard_failure_stays_visible_and_retries`。重开条件：C++ 引入自恢复重试，
-  或 fkv 改为失败即停。
 - 缺失快照的重开语义：Cloud / StandbyReplica 的显式 `Runtime::reopen` 与
   `global_reopen` 对「远端 manifest 缺失（`NotFound` / `ResourceMissing`）」
   收敛为成功并丢弃本地状态（`evict_table` + `forget`），对齐 C++
@@ -948,7 +863,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   的 `low_watermark_manifest_is_raised_and_pages_are_not_reused` /
   `well_formed_manifest_watermark_is_unchanged`（两分配模式矩阵 + 映射物理页
   唯一性断言）。判定记录见
-  issue/reviewed/l2-05-term-bump-and-reopen-max-fp-id.md。
+  （已完成记录已清理）。
 - legacy 空 `file_range_li` 的 term bump 合成区间（pooled-14 / io-28）：
   pre-range-chain 遗留 manifest（`file_ranges` 为空、mapping / 水位非空）在
   attach term 与 manifest term 不一致（bump）时，fkv `install_replay_state`
@@ -985,9 +900,9 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   0/1/1022 读取）；
   `fkv_store/tests/get_mapper_parity.rs` 的注释口径同步为「空链是
   pre-range-chain 遗留形状，不是 C++ Local 的首个 main manifest」。判定记录见
-  issue/reviewed/pooled-14-legacy-empty-range-term-floor.md、
-  issue/reviewed/io-28-pooled14-segment-bump-limit-guard.md、
-  issue/reviewed/io-29-io28-segment-guard-drops-old-term-files.md。
+  （已完成记录已清理）、
+  （已完成记录已清理）、
+  （已完成记录已清理）。
 - mapping 空闲链尾哨兵与释放页 log 增量（sem-42 + sem-45，**已对齐**）：释放逻辑页时
   fkv 现与 C++ 写同一编码。空闲链尾经 `encode_free_next`
   （`fkv_mapping/src/mapper.rs`）写 `INVALID_VALUE(7)`，`allocate_page` 经
@@ -1005,10 +920,10 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   段的槽值编码**现在逐字节等价（释放项 `7`、分配 / remap 项 `FilePageId`）。
   **data mapping 段的释放顺序**也已对齐：多页 overflow 链按 C++
   `DelOverflowValue` 的前向顺序释放（sem-47，`free_overflow_chain` 前向游标，
-  `issue/reviewed/sem-47-overflow-chain-free-order-reversed.md`）；同页多 key
+  `（已完成记录已清理）`）；同页多 key
   覆盖按 C++ `ApplyOnePage` 逐 key 相位（释放该 key 旧值 → 立即写该 key 新
   overflow 链 → 回填指针）执行（sem-48，`rewrite_page_values`，
-  `issue/reviewed/sem-48-same-page-multikey-free-alloc-phase.md`），log 顺序、
+  `（已完成记录已清理）`），log 顺序、
   空闲链与复用归属同 C++。行为锁定测试：`fkv_store/tests/overflow_free_order.rs`
   （struct-33 拆分）的
   `overflow_chain_free_order_matches_cpp_del_overflow_value` /
@@ -1018,9 +933,9 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   **页分裂的写出顺序**也已对齐（sem-49）：既有 data 页分裂时先 remap 原页、
   再 allocate 分裂页（`fkv_store/tests/shift_leaf_link.rs` 的
   `split_existing_data_page_writes_original_before_split_pages`，
-  `issue/reviewed/sem-49-split-page-mapping-log-order.md`）。同批「分裂 + 后继页
+  `（已完成记录已清理）`）。同批「分裂 + 后继页
   改写 / 删除」的相位也已对齐：同一逻辑页一批内最多 remap 一次（sem-51，
-  `issue/reviewed/sem-51-split-successor-double-remap.md`），前驱修复与分裂尾页
+  `（已完成记录已清理）`），前驱修复与分裂尾页
   的 `UpdateMapping` 延迟到删除页 `DeleteMapping` 之后、批末统一写出（sem-52/53，
   mapper 的 `reserve_page` / `commit_reserved_page`），记录顺序同 C++
   `ShiftLeafLink`。行为锁定测试：`fkv_store/tests/shift_leaf_link.rs`
@@ -1051,8 +966,8 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `fkv_store/tests/get_mapper_parity.rs` 的
   `legacy_free_chain_tail_reopens_with_cpp_sentinel`、store 级
   `free→alloc→free→alloc` 序列与混合批用例。判定记录见
-  issue/reviewed/sem-42-mapping-free-list-sentinel-encoding.md 与
-  issue/reviewed/sem-45-free-realloc-log-delta-final-value.md。
+  （已完成记录已清理） 与
+  （已完成记录已清理）。
 - 整表 truncate 的 segment 映射（sem-43，**有意差异**）：C++ 82b774c
   `BatchWriteTask::Truncate`（`batch_write_task.cpp:1845-1890`）整表分支只遍历
   data mapping 逐页 `FreePage`，全函数不引用 `segment_mapper_`；随后
@@ -1075,7 +990,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   sem-42 已对齐。行为锁定测试：`fkv_store/tests/large_value.rs` 的
   `truncate_frees_segment_mapping_and_gc_reclaims_files` /
   `reopen_cpp_style_truncate_manifest_keeps_segment_mapping`。判定记录见
-  issue/reviewed/sem-43-truncate-full-segment-mapping.md。
+  （已完成记录已清理）。
 - 覆盖大 value 时 segment 逻辑页的分配 / 释放顺序（sem-46，**有意差异**）：
   C++ `BatchWriteTask::ApplyBatch` 在旧值覆盖胜出时先 `DelLargeValue`
   （`batch_write_task.cpp:576-579,1665-1681`）再 `WriteLargeValue`
@@ -1091,7 +1006,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   由各自 manifest 引用决定，双方互读安全。行为锁定测试：
   `fkv_store/tests/large_value.rs` 的
   `put_large_overwrite_allocs_before_frees_segment_slots`。判定记录见
-  issue/reviewed/sem-46-put-large-segment-reuse-order.md。
+  （已完成记录已清理）。
 - large 批的落段门槛（sem-62，**输入契约差异**，与「单批重复 key」条同型）：
   C++ 引擎对 large entry 没有大小门槛——落段与否完全由宿主构造 `WriteDataEntry`
   决定（`include/types.h` 的 `large_val_` 非 `std::monostate` 即
@@ -1120,7 +1035,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `put_large_routes_subthreshold_values_to_data_pages`（小 value 经 `Store::get`
   从数据页读回、manifest segment 段只含大 value 槽、恰等于阈值的 value 落段
   锁定 `>=` 语义；put_large 改为批内全落段时立红）。判定记录见
-  issue/reviewed/sem-62-put-large-subthreshold-inline.md。
+  （已完成记录已清理）。
 - Compact 公开请求形态（sem-64，**公开请求面差异**）：C++ `CompactRequest`
   无字段（`include/eloq_store.h:783-791`），经公开 `ExecAsyn` / `ExecSync`
   提交后分派 `task->Compact()`（`src/storage/shard.cpp:1180-1193`，受
@@ -1137,56 +1052,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   `fkv_shard/tests/lifecycle.rs` 的
   `compact_request_moves_only_named_file_and_defers_gc`（单文件搬迁、无 GC、
   他文件不动、显式 FileGc 只回收指定文件；改为 maintain 全表语义时立红）。
-  判定记录见 issue/reviewed/sem-64-compact-request-shape-public-surface.md。
-- 字典注入 API 的单侧新增与持久化 / 拒绝替换语义（sem-67，**输入契约差异**，
-  与「large 批的落段门槛」条同型）：C++ `DictCompression` 没有运行中注入 /
-  换字典的对外入口——`LoadDictionary`（`src/compression.cpp:164`）只在
-  replayer 内部装载来自 manifest 的字典（字典已在盘上，不置 dirty 自洽，
-  调用点 `src/storage/page_manager.cpp:208,649`）；
-  `SampleAndBuildDictionaryIfNeeded`（`compression.cpp:196`）有
-  `HasDictionary()` 门（`:199`），一旦有字典永不重建，字典生命周期封闭。
-  fkv `Store::set_dictionary` 是单侧新增公开 API（宿主可注入预训练 zstd
-  字典），修复后语义：装载成功即标记字典待持久化（下一次 flush 走全量
-  snapshot 把 `dict_bytes` 写入 manifest，reopen 自动恢复；replay 装载盘上
-  字典的 `load_dictionary` 保持不置脏）；该表已有字典（注入 / 自动训练 /
-  replay 恢复）时拒 `KvError::InvalidArgs` 不替换（zstd 帧不内嵌字典、不
-  校验字典身份，静默换字典会让旧 Dictionary 压缩页解出错值）。修复前缺陷
-  （fkv `d25e47c`）：注入不置 dirty，manifest 已建的表 flush 走增量 record
-  （不含字典），reopen 后 `has_dictionary == false`、Dictionary 压缩页永久
-  `Corrupted`；已有字典时静默替换、读路径可错值。差分口径：C++ 无该输入
-  面，oplog / 差分生成器不得假设「运行中注入 / 替换字典」输入在两侧同形；
-  fkv 单侧注入产生的 `dict_bytes` 仍按 l2-07 口径不作逐字节对拍。行为锁定
-  测试：`fkv_store/tests/compression.rs` 的
-  `dictionary_injected_after_first_manifest_survives_reopen`（先写建首
-  manifest 后注入，去掉置脏即红）与
-  `set_dictionary_rejects_replacing_live_dictionary`（二次注入必须
-  `InvalidArgs` 且旧值可读，去掉守卫即红）。判定记录见
-  issue/reviewed/sem-67-set-dictionary-silent-dirty-and-unguarded-replace.md。
-- 字典训练失败 epoch 的输出与存活面（sem-68，**fkv 有意加固**，与 sem-14
-  「Rust 取幂等 / 自愈」同型口径）：自动训练 `ZDICT_trainFromBuffer` 失败
-  （平凡可达：压缩开启 + 一批 5 × 350KB 完全相同值即触发，总量 ≥
-  `SAMPLE_TARGET_BYTES` 且份数 = `MIN_SAMPLES`）后，C++ `BuildDictionary`
-  （`src/compression.cpp:266-293`）入口无条件 `has_dictionary_ = true;
-  dirty_ = true`，失败把字典置空串照常装载——失败 epoch 内中间区间值继续
-  产 Dictionary 型页、下一次 flush 强制全量 snapshot 携带**空** `dict_bytes`，
-  而 replay 端 `DictCompression` 默认构造（`include/compression.h:49`）不会
-  为空字典重建 ddict，读失败 epoch 的 Dictionary 页走
-  `assert(HasDictionary())` / 空 dctx 路径 → **C++ 优雅重启后自身永久不可
-  读**（上游缺陷面）。fkv 失败后无字典（`has_dictionary == false`）、值按
-  无字典分支保持 raw 两侧（进程内 / 重启后）永久可读、不强制 snapshot
-  （`fkv_compress/src/lib.rs` 的 `build_dictionary` 失败早退不置脏 +
-  `fkv_store/src/write.rs` 吞错继续）。差分口径：压缩开启且语料触发
-  trainer 失败时，(a) C++ 盘上失败 epoch 的 Dictionary 页在 C++ 重启后与
-  迁移到 fkv 后均不可读（fkv 无字典 `decompress` 为 `Err(Corrupted)`），
-  不得判 fkv 错；(b) 该批 flush 形态不同（C++ 强制空 dict snapshot vs
-  fkv 增量 record），manifest 对拍在该形状失败；oplog / 差分生成器不得
-  假设「训练失败」输入在两侧同形。行为锁定测试：
-  `fkv_store/tests/compression.rs` 的
-  `dictionary_training_failure_epoch_keeps_values_raw_and_readable`
-  （失败后无字典、值进程内 + reopen 均可读、盘面零 Dictionary 页；模拟
-  C++ 失败 epoch 装哑字典即红）。重开条件：C++ 上游修复 `BuildDictionary`
-  失败处理（失败不置 `has_dictionary_` / 不继续产 Dictionary 页）时重评。
-  判定记录见 issue/reviewed/sem-68-dictionary-training-failure-epoch-divergence.md。
+  判定记录见 （已完成记录已清理）。
 - truncate 的 manifest 冲刷形态（sem-58）：三个面。
   - 空分区整表 truncate（**已对齐**）：C++ `BatchWriteTask::Truncate` 在
     trunc_pos 分派之前对空树无条件早退（`cow_meta_.root_id_ == MaxPageId`，
@@ -1220,7 +1086,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   差分口径：Form A 对齐后「空分区 truncate」两侧均零 manifest 写，可对拍；
   「越界 position truncate」「大表范围 truncate」按 l2-03 sem-58 行跳过——
   同一 oplog 的 manifest record 数 / 字节与物理页分配高水位不作等价目标。
-  判定记录见 issue/reviewed/sem-58-truncate-manifest-shape-empty-and-no-match.md。
+  判定记录见 （已完成记录已清理）。
 - compact 轮次的 manifest 记录流形态（sem-61）：两个面。
   - 搬迁文件顺序（**已对齐**）：C++ `DoCompactDataFile` /
     `DoCompactSegmentFile` 都是
@@ -1256,7 +1122,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
     构造乱序盘面的手推期望 mapping）与
     `fkv_store/tests/compact_page_order_within_file.rs`（真实 oplog 的 overflow
     删 / 写构造同文件乱序，delta 旧 fp 严格递增 + 新 fp = base+i）。判定记录见
-    issue/reviewed/sem-60-compaction-move-order.md。
+    （已完成记录已清理）。
   - record 边界（**有意差异**）：C++ `BackgroundWrite::Compact()` =
     `DoCompactDataFile` + `DoCompactSegmentFile` + **一次**
     `UpdateMeta(/*trigger_compact=*/false)`
@@ -1280,7 +1146,7 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
     切分同款口径。差分口径：双侧同超阈值的 compact 轮次，manifest record
     边界 / record 数与单条 record 内的段归属不作对拍目标；搬迁顺序面已对齐，
     record 内 data delta 的 page_id 顺序与新 `FilePageId` 发号可对拍。
-  判定记录见 issue/reviewed/sem-61-compact-file-order-and-record-split.md。
+  判定记录见 （已完成记录已清理）。
 - single-flight owner 取消的传播语义（l2-12）：C++ 的页级读盘与等待者名单都挂在
   页对象上——`WaitingZone waiting_` 是 `MemCachedPage` 的成员
   （`cpp/eloqstore/include/storage/mem_cached_page.h:223`），首访任务在
@@ -1289,19 +1155,25 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   移入、读完整页后移回），读完成后在同一任务里 `new_page->waiting_.WakeAll()`
   （成功 `:703`；失败 `:693` 先 `SetError` 再唤醒），后来者则
   `handle->waiting_.Wait(ThdTask())`（`:709`）。C++ 任务是同线程协作式协程，
-  **没有任务取消 / future drop 原语**：`KvTask::WaitIo` 只按 `inflight_io_`
-  置 `BlockedIO` 并 `Yield`（`cpp/eloqstore/src/tasks/task.cpp:66-73`），IO 完成
-  由 `FinishIo` 递减并 `Resume`（`:75-90`），全仓无 cancel 路径。因此「owner
-  中途消失」在 C++ 不可表达，读者最终拿到的总是页对象上的结果。
-  **fkv 侧的对应机制已随页缓存重构移除**：早期 `fkv_task_read` 的页级
-  single-flight（`flight.rs` 的 `LoadGuard` / `LoadStep::Waiter`）在 index 逻辑页
-  缓存删除、收敛为单一 `PageCache` 后不再存在——现在每次页读都是独立
-  `read_page_ref`（命中零拷贝、未命中直读），没有等待者共享 owner 的在飞读，
-  也就不存在「owner 取消 → 等待者收 `TryAgain`」这一状态。**有意差异（登记）**：
-  C++ 无任务取消，fkv 也无页级等待者，两侧都不存在该状态；差分器不得以
-  「取消后等待者仍拿到页」或「等待者收到可重试错误」作为对拍期望。
-  重开条件：fkv 重新引入页级 single-flight（届时须恢复等待者侧的取消传播
-  语义并重建锁定测试），或 C++ 引入任务取消 / 超时取消。
+  **没有任务取消 / future drop 原语**：`KvTask::WaitIo` 只按 `inflight_io_` 置
+  `BlockedIO` 并 `Yield`（`cpp/eloqstore/src/tasks/task.cpp:66-73`），IO 完成由
+  `FinishIo` 递减并 `Resume`（`:75-90`），全仓无 cancel 路径。因此「owner 中途
+  消失」在 C++ 不可表达，读者最终拿到的总是页对象上的结果。fkv 的 reader future
+  可被上层 drop：`LoadGuard::drop` 把 owner 取消转成对全体等待者的 `TryAgain`
+  广播（`crate/engine/fkv_task_read/src/flight.rs:178-192`，广播调用 `:182-189`；
+  等待者侧 `crate/engine/fkv_task_read/src/lib.rs:348-358` 的
+  `LoadStep::Waiter`，`rx.await` 在 `:353`），**不**让等待者接手读盘、
+  也不假设被取消的 owner 仍会完成 IO。这是 Rust 侧刻意的语义选择（注释写明同
+  云端 `DownloadGuard`），代价是一次 owner 取消会让并未被取消的等待者拿到一个
+  可重试错误、须由上层重试。**有意差异（登记）**：C++ 无对应可对拍状态，不得把
+  该 `TryAgain` 当作 C++ 错误面 oracle，差分器也不应以「取消后等待者仍拿到页」
+  要求 fkv。行为锁定测试 `fkv_task_read/tests/single_flight.rs` 的
+  `owner_cancel_broadcasts_try_again_to_all_waiters`（`:591-635`；`Vec<Box::pin>`
+  + `poll_once`（`noop_waker`）手工逐次 poll——owner 停在首访读盘让出点，其余
+  读者登记为等待者后 drop owner，断言每个等待者在广播后的下一次 poll 即
+  `Ready(Err(TryAgain))`、无挂起，不依赖超时；去掉 `LoadGuard::drop` 的广播后
+  等待者停在 `Pending`，用例变红）。重开条件：C++ 引入任务取消 / 超时取消，
+  或 fkv 改为「owner 取消后由等待者接手读盘」/「不传播取消、等待者自行重读」，
   或上层开始把 `TryAgain` 视为不可重试时。
 - ListObject 响应契约（sem-35 / sem-37 / sem-41）：prefix 组合与剥离、相对返回名
   已对齐 C++ `ListObjectRequest::SetRemotePath`（`eloqstore/src/storage/object_store.cpp`
@@ -1368,9 +1240,3 @@ eloqstore main 82b774c62728b023b03c6e5e84e69416ffec9d74 2026-10-26T22:55:36+08:0
   | sem-61 | 见上文「compact 轮次的 manifest 记录流形态」：双侧同超阈值的 compact 轮次 record 数不同（fkv data / segment 各一条 record vs C++ 单次 `UpdateMeta` 一条同携两侧 delta，`background_write.cpp:157` + `write_task.cpp:795-828`；fkv `compact.rs:79-80` / `:348-351`），record 边界不作对拍目标；搬迁文件顺序已对齐为文件号升序（该面可对拍）。 | 只影响**同一轮维护的 manifest record 数 / 单条 record 的段归属与崩溃窗口粒度**（两侧各自崩溃一致，重试 maintain 收敛）；可见数据、reopen、两侧 GC 语义与 manifest 格式不变。 | 需要对 compact 轮次的 manifest record 边界逐项对拍，或 fkv 决定把 data / segment 搬迁并进单批单 record（复刻 C++ 单 `UpdateMeta`）时。 |
 | sem-62-put-large-subthreshold-inline | 见上文「large 批的落段门槛」：C++ 落段与否由宿主构造 `WriteDataEntry` 决定、引擎无大小门槛（`HasLargeValue()` 恒走 segment）；fkv `put_large` 批内 `value.len() >= large_value_threshold`（默认 `page_size / 2`，config 为 0 时自动取界）才落 segment，低于阈值落 inline 数据页。 | 只影响**「large 批含低于阈值 value」输入下的 manifest segment 段槽位 / data 页分布与 segment 文件集**；互读不受影响（inline / segment 小 value 两侧都能读），普通 `put` 两侧同为数据页路径。 | 需要 large 批小 value 的存储位置逐项对拍，或 fkv 改为 put_large 全部落段时。 |
 | sem-64-compact-request-shape-public-surface | 见上文「Compact 公开请求形态」：C++ `CompactRequest` 无字段，公开提交后分派全表 `Compact()`（data + segment + 单 `UpdateMeta` + 末尾无条件 `RunFileGc`）；fkv `Request::Compact{tbl, file_id, pages_per_file_shift}` 是单文件搬迁原语（不带 GC），全表等价物 `Store::maintain` 无请求入口、仅写后维护内部调用。 | 只影响**公开请求面形状与宿主编排方式**（C++ 宿主一次全表请求 ⇔ fkv 宿主走写后维护或逐文件 Compact + FileGc 组合）；盘面格式、维护路径内部行为（sem-03 / sem-61 已对齐）与数据正确性不变。 | 需要公开全表 compact 请求，或对拍 Compact 请求语义时。 |
-| sem-67-set-dictionary-silent-dirty-and-unguarded-replace | 见上文「字典注入 API 的单侧新增与持久化 / 拒绝替换语义」：C++ 无运行中注入 / 换字典入口（`LoadDictionary` 仅 replayer 内部调用、训练有 `HasDictionary()` 门，字典生命周期封闭）；fkv `set_dictionary` 单侧新增，修复后装载即置脏（下一次 flush 全量 snapshot 持久化 `dict_bytes`，reopen 自动恢复）+ 已有字典拒 `KvError::InvalidArgs` 不替换。 | 只影响**「运行中注入 / 替换字典」这一 fkv 单侧输入面**：C++ 无对应物可对拍；注入产生的 `dict_bytes` 仍按 l2-07 口径不作逐字节对拍，manifest 格式与互读不变。 | C++ 上游增加运行中字典注入 API，或差分需要覆盖注入输入时。 |
-| sem-68-dictionary-training-failure-epoch-divergence | 见上文「字典训练失败 epoch 的输出与存活面」：C++ `BuildDictionary` 失败即空字典 + `has_dictionary_` 真继续产 Dictionary 页并强制空 dict snapshot，重启后 C++ 自身不可读（上游缺陷面）；fkv 失败即无字典、中间区间值保持 raw 永久可读、不强制 snapshot。 | 只影响**「训练失败」输入下的失败 epoch 页型分布 / manifest 冲刷形态与 C++ 盘面解读**；正常路径与互读不受影响，C++ 失败 epoch 页两侧均不可读、不得判 fkv 错。 | C++ 上游修复 `BuildDictionary` 失败处理（失败不置 has_dictionary / 不产 Dictionary 页）时。 |
-| sem-69-config-validate-ini-coercion-divergence | 见上文「INI 解析边界」第 10-12 项：restart_interval=0 与 data_page_size=0 fkv 拒绝（有意从严，C++ 接受 / 静默回 4096）；data_file_size=0 已对齐两侧 8 MiB 派生（fkv `0b87909`）；cloud 两步改写（local_space_limit 抬升 + fd_limit 钳制）由字节预算 CacheGroup 替代；segment_size / segments_per_file_shift / pages_per_file_shift / enable_local_standby 补入扩展键清单（布局键，同 INI 两侧布局不同）。 | 只影响**病态 / 手工构造配置的启动判定与布局派生**；正常配置两侧同形；布局扩展键需迁移清洗，不判 fkv 错误。 | C++ 收紧零值校验或 fkv 放宽 fail-fast 时重评；布局扩展键在 C++ INI 可设时移出清单。 |
-| sem-70-current-term-content-parse-three-way | 见上文「CURRENT_TERM 文件内容解析边界」：C++ local（不 trim / 空按 term 0 继续 / 非法 IoFail）与 cloud（trim + stoull 前缀 `5x`→5）互相不一致；fkv 单解析器全后端 trim + 严格全解析（空 / 前缀 / 正号 / 溢出 Corrupted）。 | 只影响**畸形 / 篡改 term 文件**下的 Drop / attach fencing 成败与错误码；合法写入两侧均规范十进制，交接安全。 | C++ 上游统一两个解析器（或任一侧收敛到严格全解析）时重评。 |
-| sem-73-cloud-startup-nonempty-root-reuse-divergence | 见上文「Cloud 启动对非空本地根的接受面」：C++ Cloud + `allow_reuse_local_caches=false`（默认）+ 非空本地根 ⇒ `Start` 以 `InvalidArgs` 拒启；fkv 启动成功并按表懒清本地缓存。 | 只影响**启动接受面与本地缓存清理时机**（fkv 懒 / C++ 急切且拒启）；盘面格式、对象命名与可见数据不变。 | fkv 引入启动期非空根检查，或 C++ 放开该限制时。 |
-| sem-39-prewarm-retry-never-gives-up | 见上文「预热失败的重试语义」：C++ 预热失败即收尾、等下次 attach/reopen 触发；fkv 预热 crond 自唤醒重试（退避 ≤1s），持续失败下持续重试。 | 只影响**预热失败后的重试节奏**（fkv 自动恢复）；不预热不改变盘面、对象集与数据可见性。 | C++ 引入自恢复重试，或 fkv 改为失败即停时。 |

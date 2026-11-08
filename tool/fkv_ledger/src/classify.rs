@@ -46,11 +46,21 @@ pub struct ClassifySummary {
   pub unchanged: usize,
   pub skipped_terminal: usize,
   pub missing: usize,
+  pub invalid: usize,
 }
 
 impl ClassifySummary {
   pub fn total(&self) -> usize {
-    self.mapped + self.ignored + self.unchanged + self.skipped_terminal + self.missing
+    self.mapped
+      + self.ignored
+      + self.unchanged
+      + self.skipped_terminal
+      + self.missing
+      + self.invalid
+  }
+
+  pub fn changed(&self) -> usize {
+    self.mapped + self.ignored
   }
 }
 

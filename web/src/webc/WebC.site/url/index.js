@@ -68,7 +68,7 @@ const page = () => {
     cell("th", "阶段"),
     cell("th", "C++ EloqStore"),
     cell("th", "Rust fkv"),
-    cell("th", "fkv / C++")
+    cell("th", "C++ / fkv")
   );
   thead.append(tr_head);
   for (const [phase, cpp, rust, ratio, tone] of PERF_MATRIX_ROWS) {

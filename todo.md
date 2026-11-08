@@ -328,7 +328,7 @@ compio = { version = "0.19", default-features = false, features = [
      `ShardConfig::max_write_concurrency` 已从 `fkv_config` 接线，`0` = 不限。
    - 全局并发用计数器（非 `Semaphore`）：跨分区写已按
      `max_write_concurrency` 真正并发 `spawn`，额度同时承担计数与背压；
-     见 `issue/reviewed/eng-33a-write-gate-concurrent-dispatch.md`。
+     见 `（已完成记录已清理）`。
    - 后台 compaction / GC / archive 与用户写走同一 per-partition 队列，保证串行；
      优先级分离见 eng-34（低优先队列仍须保持分区 FIFO）。
 

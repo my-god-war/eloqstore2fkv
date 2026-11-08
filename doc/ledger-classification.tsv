@@ -539,7 +539,7 @@ src/storage/page_manager.cpp#function:eloqstore::EffectiveBufferPoolLimitBytes	i
 src/storage/page_manager.cpp#function:eloqstore::PageManager::AllocPage	ignore	rev-41: 用户态 buffer pool 页槽分配（free list + Evict + pinned 回退），Rust 无页槽池，页读直接 io.read_page（COMPAT_BASELINE 范围与排除项）
 src/storage/page_manager.cpp#function:eloqstore::PageManager::EnqueuePage	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
 src/storage/page_manager.cpp#function:eloqstore::PageManager::Evict	ignore	rev-41: 用户态 buffer pool / 页级 pin / data page cache 不做 1:1（COMPAT_BASELINE 范围与排除项）
-src/storage/page_manager.cpp#function:eloqstore::PageManager::FindPage	ignore	rev-41: buffer pool swizzle/pin/waiting 页查找；Rust 由 snapshot.data_tbl().file_page_id + io.read_page 直读（fkv_task_read/src/lib.rs:268），缓存命中走单一 PageCache（COMPAT_BASELINE 范围与排除项）
+src/storage/page_manager.cpp#function:eloqstore::PageManager::FindPage	ignore	rev-41: buffer pool swizzle/pin/waiting 页查找；Rust 由 snapshot.data_tbl().file_page_id + io.read_page 直读（fkv_task_read/src/lib.rs:268），缓存命中走 IndexCache（COMPAT_BASELINE 范围与排除项）
 src/storage/page_manager.cpp#function:eloqstore::PageManager::FindRoot	map	fkv_mapping:core
 src/storage/page_manager.cpp#function:eloqstore::PageManager::FinishIo	ignore	rev-41: 页读完成后的 swizzle / cached_pages_ / LRU 登记；Rust 无 MemCachedPage 对象与 swizzle 表（COMPAT_BASELINE 范围与排除项）
 src/storage/page_manager.cpp#function:eloqstore::PageManager::FreeMappingSnapshot	ignore	sto-59: 仅 PooledFilePages 回收（data_append_mode=false）与 mapping_snapshots_ 摘链；Rust 恒 append（文件页不复用），快照生命周期由 SnapshotRegistry 弱引用承担（fkv_mapping/src/snapshot.rs:124）
