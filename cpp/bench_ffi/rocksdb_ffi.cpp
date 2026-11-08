@@ -464,7 +464,7 @@ FkvBenchFfi *fkv_bench_open(const char *root, const FkvBenchConfig *config)
     std::error_code ec;
     std::filesystem::create_directories(handle->root, ec);
     rocksdb::Options options = MakeOptions(handle.get());
-    rocksdb::DB *db = nullptr;
+    std::unique_ptr<rocksdb::DB> db;
     const rocksdb::Status st =
         rocksdb::DB::Open(options, handle->root, &db);
     if (!st.ok())
@@ -472,7 +472,7 @@ FkvBenchFfi *fkv_bench_open(const char *root, const FkvBenchConfig *config)
         tls_open_error = "rocksdb open: " + st.ToString();
         return nullptr;
     }
-    handle->db.reset(db);
+    handle->db = std::move(db);
     return handle.release();
 }
 
