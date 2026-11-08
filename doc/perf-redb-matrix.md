@@ -335,3 +335,36 @@ C++ 略优。
 一个反面教材记在这里：最初把 25M 行配 4 GiB 缓存（数据 ≈ 缓存）跑了 80 分钟
 没结束——那是 LRU 的最坏点（每次访问都挤掉下一步要用的页），既不是「全驻内存」
 也不是干净的「冷缓存」，数字重复性极差，已废弃该配置。
+
+## 11. 第三列 RocksDB 与配置分层（run 42474412476 起）
+
+新增 RocksDB 参考引擎：`cpp/bench_ffi/rocksdb_ffi.cpp` 实现与 EloqStore **同一个
+C ABI**（`fkv_bench_open/run/close/last_error/abi_version`），矩阵用
+`--rocksdb-lib` 加载，因此三列共用同一套阶段驱动，不存在"各写一份 bench"的偏差。
+
+### 缓存与持久化对齐
+
+| 维度 | fkv | EloqStore (C++) | RocksDB |
+|---|---|---|---|
+| 缓存池 | 单一页缓存 `page_cache_bytes` | `buffer_pool_size`（index+data 同池） | `block_cache` + `cache_index_and_filter_blocks=true` |
+| 缓存额度 | 256 MiB | 256 MiB | 256 MiB |
+| 读写粒度 | 4 KiB 页 | 4 KiB 页 | `block_size = 4 KiB` |
+| 压缩 | 无 | 无 | `kNoCompression` |
+| 每批持久化 | 1×数据 + 1×manifest fdatasync | `SyncData` + `AppendManifest`（两次 fdatasync） | **RocksDB 默认**：WAL 开、`sync=false`（不逐次 fsync） |
+| memtable | 不适用 | 不适用 | 默认 64 MiB（不属于页缓存） |
+
+最后一行是**刻意的口径差异**而不是实现优劣：RocksDB 默认不逐次 fsync，另外两侧
+每批固定同步且无法关闭。因此写阶段（批量加载 / 单条写入 / 批量写 / 删除）两侧
+多付 fsync，读阶段不受影响。这条写在网页表格下面的「RocksDB 列」配置块里。
+
+### 页面信息分层
+
+表格下面拆成三块卡片（`.HomeConfig`，圆角 16 / `#00000014` 细边 / tabular-nums）：
+
+- **机器**：runner、页大小、日期、CI run id、同机同轮次口径；
+- **测试负载**：数据量、缓存/引擎、key/value、点读次数与并发、范围读、删除、采样、分区；
+- **RocksDB 列**：版本、block cache、block size、index/filter、压缩、持久化、memtable、fsync 差异提醒。
+
+数据源仍是 CI artifact：`scripts/perf_matrix_to_js.py` 从 `fkv-matrix.json` 生成
+`PERF_HAS_ROCKSDB` 与 `PERF_CONFIG`，行格式
+`[阶段, fkv, C++, RocksDB, fkv/C++, fkv/RocksDB, tone?]`。
