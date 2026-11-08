@@ -24,7 +24,7 @@ use std::{
 };
 
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 const USAGE: &str = "\
 用法: fkv_bench_matrix (--cpp-lib <libfkv_bench_ffi.so> | --cpp-bin <simple_bench>)
@@ -138,7 +138,7 @@ impl Phase {
 }
 
 /// Result of one phase on one engine.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PhaseResult {
   pub ops: u64,
   #[serde(with = "duration_secs")]
@@ -153,10 +153,14 @@ pub struct PhaseResult {
 mod duration_secs {
   use std::time::Duration;
 
-  use serde::Serializer;
+  use serde::{Deserialize, Deserializer, Serializer};
 
   pub fn serialize<S: Serializer>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_f64(duration.as_secs_f64())
+  }
+
+  pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
+    Ok(Duration::from_secs_f64(f64::deserialize(deserializer)?))
   }
 }
 
@@ -1836,7 +1840,7 @@ fn fmt_secs(secs: f64) -> String {
 // Matrix orchestration and report
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct PhaseRow {
   phase: String,
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -1851,20 +1855,20 @@ struct PhaseRow {
   fkv_note: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct SizeRow {
   cpp: Option<u64>,
   fkv: Option<u64>,
   ratio: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct CompactionTiming {
   cpp_secs: Option<f64>,
   fkv_secs: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConfigSummary {
   workdir: String,
   profile: String,
@@ -1887,13 +1891,62 @@ struct ConfigSummary {
   samples: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct MatrixReport {
   config: ConfigSummary,
   phases: Vec<PhaseRow>,
   uncompacted_size: SizeRow,
   compacted_size: SizeRow,
   compaction: CompactionTiming,
+}
+
+/// 合并多个分片报告：阶段按 canonical 顺序拼接，体积 / 压实取第一个有值的分片。
+///
+/// 各分片跑的是同一份配置（同一 runner 标签、同一参数），所以 config 取第一份；
+/// 分片之间不重叠（`--phases` 已切分），合并就是按顺序拼表。
+fn merge_reports(report_li: Vec<MatrixReport>) -> MatrixReport {
+  let mut iter = report_li.into_iter();
+  let first = iter
+    .next()
+    .expect("merge_reports 至少收到一份报告（--merge 已在解析时校验）");
+  let readers = first.config.readers.clone();
+  let order_li: Vec<String> = build_phases(&readers, None)
+    .iter()
+    .map(|phase| phase.label())
+    .collect();
+
+  let mut phases = first.phases;
+  let mut uncompacted = first.uncompacted_size;
+  let mut compacted = first.compacted_size;
+  let mut compaction = first.compaction;
+  for report in iter {
+    phases.extend(report.phases);
+    if uncompacted.cpp.is_none() && uncompacted.fkv.is_none() {
+      uncompacted = report.uncompacted_size;
+    }
+    if compacted.cpp.is_none() && compacted.fkv.is_none() {
+      compacted = report.compacted_size;
+    }
+    if compaction.cpp_secs.is_none() && compaction.fkv_secs.is_none() {
+      compaction = report.compaction;
+    }
+  }
+  // 按 `build_phases` 的顺序排（分片是并行跑的，完成顺序不可控）。
+  let rank = |phase: &str| {
+    order_li
+      .iter()
+      .position(|label| label == phase)
+      .unwrap_or(usize::MAX)
+  };
+  phases.sort_by_key(|row| rank(&row.phase));
+
+  MatrixReport {
+    config: first.config,
+    phases,
+    uncompacted_size: uncompacted,
+    compacted_size: compacted,
+    compaction,
+  }
 }
 
 fn build_phases(readers: &[usize], only: Option<&[String]>) -> Vec<Phase> {
@@ -2295,6 +2348,8 @@ struct Args {
   removals: Option<u64>,
   samples: Option<usize>,
   phases: Option<Vec<String>>,
+  /// 只做合并：把多个分片运行的 JSON 合成一份 markdown + JSON。
+  merge: Option<Vec<PathBuf>>,
   phase_timeout_secs: Option<u64>,
   markdown: Option<PathBuf>,
   json: Option<PathBuf>,
@@ -2358,6 +2413,7 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
       | "--removals"
       | "--samples"
       | "--phases"
+      | "--merge"
       | "--phase-timeout-secs"
       | "--markdown"
       | "--json" => {
@@ -2450,6 +2506,18 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<ParsedArgs, Stri
           "--samples" => {
             ensure_unset(&parsed.samples, &arg)?;
             parsed.samples = Some(parse_usize(&arg, &value)?);
+          }
+          "--merge" => {
+            ensure_unset(&parsed.merge, &arg)?;
+            let list: Vec<PathBuf> = value
+              .split(',')
+              .map(|path| PathBuf::from(path.trim()))
+              .filter(|path| !path.as_os_str().is_empty())
+              .collect();
+            if list.is_empty() {
+              return Err("--merge 至少要给一个 JSON 路径".to_owned());
+            }
+            parsed.merge = Some(list);
           }
           "--phases" => {
             ensure_unset(&parsed.phases, &arg)?;
@@ -2681,6 +2749,40 @@ fn run() -> Result<(), CliError> {
   };
   let markdown_path = args.markdown.clone();
   let json_path = args.json.clone();
+  if let Some(path_li) = args.merge.clone() {
+    // 分片运行 → 合并：各 job 只跑一部分阶段，最终由这里统一渲染，
+    // 保证表格只有一份渲染器（`MatrixReport::to_markdown`）。
+    let mut report_li = Vec::with_capacity(path_li.len());
+    for path in &path_li {
+      let text = fs::read_to_string(path)
+        .map_err(|err| CliError::Failed(format!("read {}: {err}", path.display())))?;
+      let report: MatrixReport = serde_json::from_str(&text)
+        .map_err(|err| CliError::Failed(format!("parse {}: {err}", path.display())))?;
+      report_li.push(report);
+    }
+    let report = merge_reports(report_li);
+    let markdown = report.to_markdown();
+    print!("{markdown}");
+    if let Some(path) = markdown_path {
+      if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+          .map_err(|err| CliError::Failed(format!("create {}: {err}", parent.display())))?;
+      }
+      fs::write(&path, &markdown)
+        .map_err(|err| CliError::Failed(format!("write {}: {err}", path.display())))?;
+    }
+    if let Some(path) = json_path {
+      if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+          .map_err(|err| CliError::Failed(format!("create {}: {err}", parent.display())))?;
+      }
+      let text = serde_json::to_string_pretty(&report)
+        .map_err(|err| CliError::Failed(format!("serialize report: {err}")))?;
+      fs::write(&path, text)
+        .map_err(|err| CliError::Failed(format!("write {}: {err}", path.display())))?;
+    }
+    return Ok(());
+  }
   let (cpp_backend, rust_bin, cfg) = resolve_config(args).map_err(CliError::Usage)?;
 
   fs::create_dir_all(&cfg.workdir)

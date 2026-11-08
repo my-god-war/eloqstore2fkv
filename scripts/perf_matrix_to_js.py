@@ -161,11 +161,11 @@ def build_meta(report: dict, run_id: str, date: str) -> str:
     cache_mib = cfg["cache_bytes"] / (1024 * 1024)
     ratio = data_mib / max(cache_mib, 1.0)
     return (
-        "random reads · C++ EloqStore FFI vs Rust fkv · "
+        "redb 阶段矩阵 · C++ EloqStore vs Rust fkv · "
         f"{date} · GitHub Actions ubuntu-latest (x86_64, 4 KiB 页) · "
         f"{rows} 行 × {cfg['kv_size']} B ≈ {data_mib:.0f} MiB 数据 / "
         f"{cache_mib:.0f} MiB 缓存（≈{ratio:.0f}:1，对齐 RocksDB 官方 97 GiB/6 GiB）· "
-        f"reads={cfg['reads']} · readers {readers}"
+        f"readers {readers} · 每阶段 1 次采样"
     )
 
 
