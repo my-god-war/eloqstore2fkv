@@ -669,9 +669,11 @@ extern "C" FKV_BENCH_FFI_API FkvBenchFfi *fkv_bench_open(
         {
             options.buffer_pool_size = config->buffer_pool_size;
         }
-        // 与 fkv 的 data page cache 对齐：C++ 默认只缓存 index 页，
-        // 开启后 data / index 共享 buffer_pool_size。
-        options.enable_data_page_cache = true;
+        // 缓存口径按引擎默认：C++ `KvOption::enable_data_page_cache` 默认 false，
+        // fkv 同样默认 false。两侧都不缓存 data 页，只缓存 index 页，才是同口径；
+        // 之前这里硬编码 true，等于给 C++ 侧多开一层 data 页缓存（实测点多读
+        // 少下盘约 7.5%）。需要测「开 data 缓存」的对照时可显式改这里。
+        options.enable_data_page_cache = false;
         handle->store = std::make_unique<eloqstore::EloqStore>(options);
         const eloqstore::KvError err = handle->store->Start("main", 0);
         if (err != eloqstore::KvError::NoError)
